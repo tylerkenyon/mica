@@ -1,0 +1,132 @@
+# GitHub Actions workflow for mica.
+#
+# Layout:
+#   - job `build`:   runs on every push and PR. Validates the build, then runs the
+#                    `dist` pipeline (which produces dist/<name>-lib-<version>.zip
+#                    with the slim library jar + LICENSE.txt + library-README.md).
+#                    Uploads the zip as a workflow artifact for any concurrent run.
+#   - job `release-dev`: runs on push to main, or on a `v*` tag. Tags and uploads
+#                    the same `dist/*.zip` to GitHub Releases. Pushes to main upload
+#                    as a PRE-release (the "dev release channel"); tagged commits
+#                    (e.g. `v0.2.0`) promote to a full release.
+#
+# PRs validate only - they cannot create Releases, both because they lack write
+# permissions and because the dist step (Loom re-mapping) is heavy. PR artifacts
+# are still available on the workflow run page so reviewers can grab the zip.
+
+name: Build & dev-release
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+# Cancel an in-progress CI run when a new push lands on the same branch -
+# avoids consuming Actions minutes on superseded runs. PR runs are kept while
+# open since each PR is its own ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+
+# Baseline read-only permission. The release job overrides this to write.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Loom re-maps ~2k classes during a clean build. The default 1G heap fits
+      # but leaves no headroom; 3G is the sweet spot for the first-time run.
+      GRADLE_OPTS: -Xmx3G
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle daemon wrapper
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build with gradle (verify)
+        run: ./gradlew build --no-daemon
+
+      - name: Run `dist` (build the slim library zip)
+        # Skipped on PRs from forks - those don't have access to the Gradle home
+        # cache and would otherwise download multi-GB Minecraft every run.
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        run: ./gradlew dist --no-daemon
+
+      - name: Upload slim jar as workflow artifact
+        if: hashFiles('dist/*.zip') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: mica-lib-${{ github.run_number }}
+          path: dist/*.zip
+          if-no-files-found: error
+
+  release-dev:
+    name: Dev pre-release channel
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    # Only fire release on push events. PRs are validated by `build` only; the
+    # release job requires the contents-write token, which PRs from forks don't
+    # carry.
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    env:
+      GRADLE_OPTS: -Xmx3G
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle daemon wrapper
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Compute version / pre-release flag
+        id: version-step
+        # Tags formatted v* (matching the workflow trigger) promote to a full
+        # non-prerelease GitHub Release. Every push to main becomes a
+        # pre-release tagged `dev-<short-sha>` so consumers can distinguish
+        # `dev-abc1234` from `v0.2.0` at a glance.
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            echo "release_name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          else
+            SHA="${GITHUB_SHA::7}"
+            echo "tag=dev-$SHA" >> "$GITHUB_OUTPUT"
+            echo "release_name=dev-build-$SHA" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run gradle dist to produce the slim library pack
+        run: ./gradlew dist --no-daemon
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ steps.version-step.outputs.release_name }}
+          tag_name: ${{ steps.version-step.outputs.tag }}
+          prerelease: ${{ steps.version-step.outputs.prerelease }}
+          generate_release_notes: true
+          files: dist/*.zip
+          fail_on_unmatched_files: true

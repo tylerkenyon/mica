@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "mica",
+  "version": "${version}",
+  "name": "Mica",
+  "description": "",
+  "authors": [],
+  "contact": {},
+  "license": "All-Rights-Reserved",
+  "icon": "assets/mica/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "fabric-datagen": [
+      "dev.technix.mica.MicaDataGenerator"
+    ],
+    "client": [
+      "dev.technix.mica.MicaClient"
+    ],
+    "main": [
+      "dev.technix.mica.Mica"
+    ]
+  },
+  "mixins": [
+    "mica.mixins.json",
+    {
+      "config": "mica.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}
