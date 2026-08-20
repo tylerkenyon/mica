@@ -54,6 +54,9 @@ jobs:
           distribution: temurin
           java-version: '25'
 
+      - name: Ensure gradlew is executable on the runner
+        run: chmod +x ./gradlew
+
       - name: Set up Gradle daemon wrapper
         uses: gradle/actions/setup-gradle@v4
 
@@ -96,6 +99,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
+
+      - name: Ensure gradlew is executable on the runner
+        run: chmod +x ./gradlew
 
       - name: Set up Gradle daemon wrapper
         uses: gradle/actions/setup-gradle@v4
