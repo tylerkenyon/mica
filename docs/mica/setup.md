@@ -116,7 +116,7 @@ two ping-pong blur targets.
 
 ## OpenGL fallback
 
-If Minecraft 1.26 picks the OpenGL backend, Mica's renderer is silently inert: the
+If Minecraft 26.2 picks the OpenGL backend, Mica's renderer is silently inert: the
 mixin calls `prepareForFrame()` and `renderOverlay()`, both of which `isVulkanActive()`
 gates. A single WARN line appears in the log:
 

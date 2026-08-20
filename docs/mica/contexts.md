@@ -9,15 +9,15 @@ the current screen once per frame and skips elements whose scope does not match.
 public enum MicaScreen { ANY, TITLE, IN_GAME_HUD, PAUSE, INVENTORY, CHAT, OTHER }
 ```
 
-| Constant        | Trigger in Minecraft 1.26+                                         |
-| --------------- | ------------------------------------------------------------------ |
-| `ANY`           | Default; matches every screen.                                     |
-| `TITLE`         | `gui.screen() instanceof TitleScreen`.                              |
-| `IN_GAME_HUD`   | No top-level screen; the in-world HUD overlay.                     |
-| `PAUSE`         | `gui.screen() instanceof PauseScreen`.                              |
-| `INVENTORY`     | `gui.screen() instanceof AbstractContainerScreen` (chests, etc.).   |
-| `CHAT`          | `gui.screen() instanceof ChatScreen`.                               |
-| `OTHER`         | Anything that doesn't classify into the above.                      |
+| Constant        | Trigger in Minecraft 26.2+                                        |
+| --------------- |-------------------------------------------------------------------|
+| `ANY`           | Default; matches every screen.                                    |
+| `TITLE`         | `gui.screen() instanceof TitleScreen`.                            |
+| `IN_GAME_HUD`   | No top-level screen; the in-world HUD overlay.                    |
+| `PAUSE`         | `gui.screen() instanceof PauseScreen`.                            |
+| `INVENTORY`     | `gui.screen() instanceof AbstractContainerScreen` (chests, etc.). |
+| `CHAT`          | `gui.screen() instanceof ChatScreen`.                             |
+| `OTHER`         | Anything that doesn't classify into the above.                    |
 
 `IN_GAME_HUD` is the most common scope: traditional HUDs (crosshair, hotbar, chat
 extensions) live here, and the platform will not draw them on the title screen or in
