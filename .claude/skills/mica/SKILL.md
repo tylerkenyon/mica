@@ -1,11 +1,11 @@
 ---
 name: mica
-description: Reference for working inside the Mica library project. Use when the user asks about Mica's API, asks to add or change a Mica HUD element, asks about the Vulkan backend in Minecraft 1.26+, asks to ship the slim jar as a release, or asks to plug Mica into another Fabric mod.
+description: Reference for working inside the Mica library project. Use when the user asks about Mica's API, asks to add or change a Mica HUD element, asks about the Vulkan backend in Minecraft 26.2+, asks to ship the slim jar as a release, or asks to plug Mica into another Fabric mod.
 ---
 
 # Mica
 
-Mica is a thin Dear ImGui-on-Minecraft-1.26+ Vulkan overlay library. The published
+Mica is a thin Dear ImGui-on-Minecraft-26.2+ Vulkan overlay library. The published
 artefact is a slim jar a consumer modder drops into `/libs/`; `fabric.mod.json` is
 stripped, so Fabric Loader treats it as plain library code, not a mod.
 
@@ -118,7 +118,7 @@ gh auth login
 
 # From the project root:
 gh repo create mica --public --source=. --remote=upstream --push \
-        --description "A small Dear ImGui port for Minecraft 1.26+ (Vulkan-only)."
+        --description "A small Dear ImGui port for Minecraft 26.2+ (Vulkan-only)."
 ```
 
 `--push` initialises main with the local tree. Subsequent commits use

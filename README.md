@@ -1,12 +1,9 @@
 # Mica
 
-A small Dear ImGui port for Minecraft that draws panels and HUDs into the same Vulkan
-framebuffer the game itself renders into. Vulkan-only on Minecraft 1.26+, distributed
-as a slim jar that does not register itself as a mod when dropped into another
-modder's `/libs/`.
+A Vulkan-native Dear ImGui overlay library for Minecraft 26.2.
 
-> Mica is a thin transparent sheet for a reason. The whole point is to get out of the
-> way.
+Build custom HUDs, panels and interfaces directly inside Minecraft's
+Vulkan render pipeline.
 
 ---
 
@@ -15,20 +12,19 @@ modder's `/libs/`.
 <!--
 This section is intentionally manual. When you take on a sponsor, replace this block
 with the sponsor's name, link, and a one-line blurb. Format suggestion:
-
-  * **[Sponsor Name](https://sponsor-link)** — short note about what they funded.
+[Sponsor Name](http
+  * **s://sponsor-link)** — short note about what they funded.
   * **[Another Sponsor](https://another-link)** — short note.
 
 Until you have sponsors, leave this comment in place and the section renders empty.
 -->
 
-_None yet._
-
+**[RiseLimits](https://limits.riseclient.com)** — Providing AI Credits + Discounted Official Models!
 ---
 
 ## What Mica is
 
-A vector-overlay library for Minecraft 1.26, Vulkan-only, distributed as a single
+A vector-overlay library for Minecraft 26.2, Vulkan-only, distributed as a single
 jar. You author an `OverlayElement` that emits Dear ImGui draw calls into a
 Minecraft `RenderContext`, register it with an `OverlayRenderer`, and your element is
 drawn every frame behind (or on top of) the vanilla UI on whichever screens you
@@ -43,7 +39,7 @@ Three things Mica is not:
 * **Not an input-redirection hack.** It forwards vertex and pixel work to the host's
   existing `VkCommandBuffer`. Mouse / keyboard capture is opt-in and lives in the
   bundled input mixins; nothing reaches vanilla game-state.
-* **Not cross-backend.** Mica is Vulkan-only on Minecraft 1.26+. The Mojang
+* **Not cross-backend.** Mica is Vulkan-only on Minecraft 26.2. The Mojang
   `com.mojang.blaze3d.vulkan` package is the integration surface; OpenGL is a
   runtime failure (logged once at WARN level — the overlay becomes invisible).
 
@@ -51,7 +47,7 @@ Three things Mica is not:
 
 | Feature                       | What it does                                                                                          |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Single-jar dispatch           | Mica jars imgui-java and the LWJGL Vulkan bits stand-alone via Minecraft 1.26's own `lwjgl-vulkan`.    |
+| Single-jar dispatch           | Mica jars imgui-java and the LWJGL Vulkan bits stand-alone via Minecraft 26.2's own `lwjgl-vulkan`.    |
 | Drop into `/libs/`            | Consumers do not need `fabric.mod.json` semantics from Mica; the published jar registers as plain library code, not a conflicting mod entry. |
 | Render scopes                 | Each element declares a `MicaScreen` (`TITLE`, `IN_GAME_HUD`, `PAUSE`, `INVENTORY`, `CHAT`, `ANY`). The platform consults `Minecraft.getInstance().gui.screen()` each frame. |
 | Per-element isolation         | A throwing `render()` disables that element only; the rest of the overlay continues to draw.          |
@@ -159,7 +155,7 @@ authors.
 * Dear ImGui upstream — https://github.com/ocornut/imgui
 * imgui-java binding — https://github.com/SpaiR/imgui-java
 * Vulkan 1.x spec — https://registry.khronos.org/vulkan/
-* Minecraft 1.26+ (`com.mojang.blaze3d.vulkan`) — `GuiRenderer` and `RenderTarget`
+* Minecraft 26.2 (`com.mojang.blaze3d.vulkan`) — `GuiRenderer` and `RenderTarget`
   are the entrypoints behind `MinecraftCompatImpl_26_2`.
 
 ## License
