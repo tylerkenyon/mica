@@ -1,8 +1,8 @@
-# mica — ImGui-style overlay library for Minecraft 1.26+ (Vulkan)
+# mica — ImGui-style overlay library for Minecraft 26.2+ (Vulkan)
 
 A small Dear ImGui port that draws HUDs, toast notifications, and procedural text/sprite
 overlays into the same Vulkan framebuffer the game itself renders into, on Minecraft
-1.26+ with the official `com.mojang.blaze3d.vulkan` backend.
+26.2+ with the official `com.mojang.blaze3d.vulkan` backend.
 
 ## What's in this artefact
 
