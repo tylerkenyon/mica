@@ -1,0 +1,197 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version '1.17-SNAPSHOT'
+    id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+loom {
+    splitEnvironmentSourceSets()
+
+    runs {
+        client {
+            // mica ships only a Vulkan renderer (see
+            // src/client/.../internal/backend/vulkan/*). Minecraft 26.2's safety net resets
+            // preferredGraphicsBackend to "default" after any crash that takes down a previous
+            // run, which on most GPUs silently flips the next run to OpenGL. Once that flip
+            // happens the mod still loads (it never throws) but never shows anything, which is
+            // confusing. Pass --graphicsBackend vulkan every time to dodge it.
+            //
+            // Opt out with -PimguiAllowNonVulkan on machines without Vulkan (CI, headless
+            // Linux without mesa-vulkan-drivers, etc.) so Minecraft can pick its own backend.
+            // The opt-out also lowers the "running on the wrong backend" log from WARN to INFO
+            // - the user knows what they asked for; no need to shout.
+            if (!project.hasProperty("imguiAllowNonVulkan")) {
+                programArg "--graphicsBackend"
+                programArg "vulkan"
+            }
+            if (project.hasProperty("imguiAllowNonVulkan")) {
+                vmArg "-Dimgui.allowNonVulkan=true"
+            }
+            // Diagnostics for isolating GPU faults in the Vulkan path:
+            //   -PimguiDebugClear    ImGui's pass clears its attachment magenta instead of loading
+            //                        it, proving whether the pass reaches the presented image.
+            //   -PimguiDebugSkipBlur skip recording the frosted-glass blur pass.
+            //   -PimguiDebugSkipDraw skip recording the ImGui draw data.
+            // They exist because this environment has no Vulkan validation layers installed, so
+            // bisecting the GPU path by hand is the only way to localise a fault.
+            if (project.hasProperty("imguiDebugClear")) {
+                vmArg "-Dimgui.debug.clearAttachment=true"
+            }
+            if (project.hasProperty("imguiDebugSkipBlur")) {
+                vmArg "-Dimgui.debug.skipBlur=true"
+            }
+            if (project.hasProperty("imguiDebugSkipDraw")) {
+                vmArg "-Dimgui.debug.skipDraw=true"
+            }
+            // -PimguiQuickPlay="New World" boots straight into that singleplayer level, so the
+            // in-game HUD can be checked without clicking through the menus.
+            if (project.hasProperty("imguiQuickPlay")) {
+                programArg "--quickPlaySingleplayer"
+                programArg project.property("imguiQuickPlay").toString()
+            }
+        }
+    }
+
+    mods {
+        "mica" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+}
+
+fabricApi {
+    configureDataGeneration {
+        client = true
+    }
+}
+
+repositories {
+    mavenCentral()
+    // The rest of the needed maven repositories (Fabric, Mojang, LWJGL, ...) are added by Loom automatically.
+}
+
+dependencies {
+    // To change the versions see the gradle.properties file
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    // ---- Dear ImGui (imgui-java binding) ----
+    // imgui-java publishes: imgui-java-binding (core bindings) and per-OS imgui-java-natives-*
+    // (the JNI native library). The GLFW/OpenGL3 backend module (imgui-java-lwjgl3) is NOT used:
+    // this mod is strictly Vulkan and ships its own renderer in
+    // src/client/.../backend/vulkan (VulkanImGuiBackend).
+    implementation "io.github.spair:imgui-java-binding:${project.imgui_version}"
+    implementation "io.github.spair:imgui-java-natives-windows:${project.imgui_version}"
+    implementation "io.github.spair:imgui-java-natives-linux:${project.imgui_version}"
+    implementation "io.github.spair:imgui-java-natives-macos:${project.imgui_version}"
+
+    // ---- LWJGL Vulkan + Shaderc ----
+    // NOTE: Minecraft 26.x already bundles org.lwjgl:lwjgl-vulkan and org.lwjgl:lwjgl-shaderc
+    // (with natives) as part of its own libraries, so they are NOT declared here; they are used
+    // directly by the Vulkan backend (org.lwjgl.vulkan / org.lwjgl.util.shaderc). On Windows and
+    // Linux the Vulkan loader is provided by the OS drivers; on macOS LWJGL ships MoltenVK.
+
+    // Nest every imgui-java library jar inside the mod jar (jar-in-jar) so the mod ships
+    // self-contained for every platform (Windows / Linux / macOS incl. Apple Silicon).
+    include "io.github.spair:imgui-java-binding:${project.imgui_version}"
+    include "io.github.spair:imgui-java-natives-windows:${project.imgui_version}"
+    include "io.github.spair:imgui-java-natives-linux:${project.imgui_version}"
+    include "io.github.spair:imgui-java-natives-macos:${project.imgui_version}"
+}
+
+processResources {
+    inputs.property "version", project.version
+    inputs.property "minecraft_version", project.minecraft_version
+    inputs.property "loader_version", project.loader_version
+    filteringCharset "UTF-8"
+
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version,
+                "minecraft_version": project.minecraft_version,
+                "loader_version": project.loader_version
+    }
+}
+
+def targetJavaVersion = 25
+tasks.withType(JavaCompile).configureEach {
+    // ensure that the encoding is set to UTF-8, no matter what the system default is
+    // this fixes some edge cases with special characters not displaying correctly
+    // see http://yodaconditions.net/blog/fix-for-java-file-encoding-problems-with-gradle.html
+    // If Javadoc is generated, this must be specified in that task too.
+    it.options.encoding = "UTF-8"
+    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
+        it.options.release.set(targetJavaVersion)
+    }
+}
+
+java {
+    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
+    if (JavaVersion.current() < javaVersion) {
+        toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
+    }
+    // Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
+    // if it is present.
+    // If you remove this line, sources will not be generated.
+    withSourcesJar()
+}
+
+jar {
+    from("LICENSE") {
+        rename { "${it}_${project.archives_base_name}" }
+    }
+}
+
+tasks.register("libraryJar", Jar) {
+    group = "distribution"
+    description = "Builds the slim library JAR for distribution."
+    archiveBaseName.set("${project.archives_base_name}-lib")
+    archiveVersion.set(project.version)
+    destinationDirectory.set(file("$buildDir/dist-staging"))
+    dependsOn "build"
+
+    from(zipTree(file("$buildDir/libs/${project.archives_base_name}-${project.version}.jar"))) {
+        exclude "dev/technix/client/**"
+        exclude "fabric.mod.json"
+    }
+}
+
+tasks.register("dist", Zip) {
+    group = "distribution"
+    description = "Bundles the slim library JAR + LICENSE.txt + library-README.md into dist/<name>-lib-<version>.zip."
+    archiveBaseName.set("${project.archives_base_name}-lib")
+    archiveVersion.set(project.version)
+    destinationDirectory.set(file("dist"))
+    dependsOn "libraryJar"
+
+    from(tasks.named("libraryJar"))
+    from("LICENSE.txt") { rename { "LICENSE.txt" } }
+    from("library-README.md")
+}
+
+
+// configure the maven publication
+publishing {
+    publications {
+        create("mavenJava", MavenPublication) {
+            artifactId = project.archives_base_name
+            from components.java
+        }
+    }
+
+    // See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
+    repositories {
+        // Add repositories to publish to here.
+        // Notice: This block does NOT have the same function as the block in the top level.
+        // The repositories here will be used for publishing your artifact, not for
+        // retrieving dependencies.
+    }
+}
