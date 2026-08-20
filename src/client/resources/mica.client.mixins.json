@@ -1,0 +1,20 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.technix.mica.mixin.client",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "CommandEncoderAccessor",
+    "GpuDeviceAccessor",
+    "GuiRendererMixin",
+    "KeyboardHandlerMixin",
+    "MouseHandlerMixin",
+    "VulkanCommandEncoderAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}
