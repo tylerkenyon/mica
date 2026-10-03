@@ -56,7 +56,8 @@ OverlayRenderer.builder()                      // static builder()
 
 | Method                                | Purpose                                                                                          |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `font(String name)`                   | Look up a rasterised font face by name (bundled or user-registered). Returns `null` if absent.   |
+| `font(String name)`                   | Look up a rasterised font face by name (default or user-registered). Returns `null` if absent.   |
+| `makeActive()`                        | Make this the renderer the game drives, and return it for chaining. Required - the frame and input mixins reach the renderer through it. |
 | `glassStyle()`                        | The current frosted-glass style.                                                                  |
 | `setGlassStyle(FrostedGlassStyle)`    | Swap the style at runtime; pass count takes effect immediately, divisor triggers a target re-allocation on next frame. |
 | `palette()`                           | The platform `Palette` for default colours.                                                       |

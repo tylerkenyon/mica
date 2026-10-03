@@ -8,7 +8,7 @@ Mica flows through this Java binding's `imgui.*` package - draw lists,
 
 ## Font handling
 
-Mica ships four SF Pro Display faces (`regular`, `medium`, `bold`, `logo`)
+Mica rasterises four faces from the OS UI font (`regular`, `medium`, `bold`, `logo`)
 under `assets/mica/font/*.otf`, loaded through `dev.technix.mica.internal.ImGuiFonts`.
 The atlas is rasterised once, at `VulkanImGuiBackend.init()`, and uploaded
 into Minecraft's frame command buffer (the `recordPendingTransfers` path).

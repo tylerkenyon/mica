@@ -1,0 +1,214 @@
+{
+ "area": "Minecraft 26.2 (Mojang mappings): client-side prediction of \"would a charged respawn anchor explode here?\" — DimensionType vs. the new net.minecraft.world.attribute.EnvironmentAttributes system, and whether the deciding data reaches the client.",
+ "signatures": [
+  {
+   "fqcn": "net.minecraft.world.level.dimension.DimensionType",
+   "member": "public boolean respawnAnchorWorks();",
+   "verified": false,
+   "notes": "DOES NOT EXIST on 26.2. javap -p of DimensionType lists every member; there is no respawnAnchorWorks. Corroborated by a byte-level scan of all 10,952 .class files in minecraft-common.jar + minecraft-client-only.jar for the UTF8 constants 'respawnAnchorWorks', 'bedWorks', 'ultraWarm', 'piglinSafe' -> 0 hits for all four. All of those booleans collapsed into the EnvironmentAttributeMap."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.dimension.DimensionType",
+   "member": "public net.minecraft.world.attribute.EnvironmentAttributeMap attributes();",
+   "verified": true,
+   "notes": "Record component that replaced the old per-flag accessors. DimensionType is now `public final class ... extends java.lang.Record` with components (hasFixedTime, hasSkyLight, hasCeiling, hasEnderDragonFight, coordinateScale, minY, height, logicalHeight, infiniburn, ambientLight, monsterSettings, skybox, cardinalLightType, attributes, timelines, defaultClock). On a CLIENT this map is the syncable-filtered subset only — see NETWORK_CODEC below."
+  },
+  {
+   "fqcn": "net.minecraft.world.attribute.EnvironmentAttributes",
+   "member": "public static final net.minecraft.world.attribute.EnvironmentAttribute<java.lang.Boolean> RESPAWN_ANCHOR_WORKS;",
+   "verified": true,
+   "notes": "EnvironmentAttributes is an interface; id is minecraft:gameplay/respawn_anchor_works. Decompiled registration: register(\"gameplay/respawn_anchor_works\", EnvironmentAttribute.builder(AttributeTypes.BOOLEAN).defaultValue(false)) — note NO .syncable() and NO .notPositional(). Builder defaults are isSyncable=false, isPositional=true. So: server-only data, and positional."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.RespawnAnchorBlock",
+   "member": "public static boolean canSetSpawn(net.minecraft.server.level.ServerLevel, net.minecraft.core.BlockPos);",
+   "verified": true,
+   "notes": "SERVER-ONLY (ServerLevel param) — not callable from client code. Full decompiled body is one line: `return (Boolean)level.environmentAttributes().getValue(EnvironmentAttributes.RESPAWN_ANCHOR_WORKS, pos);`. useWithoutItem() calls `if (!canSetSpawn(serverLevel, pos)) this.explode(state, serverLevel, pos);` and explode() is `private void explode(BlockState, ServerLevel, BlockPos)` — also server-only."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.RespawnAnchorBlock",
+   "member": "public static final net.minecraft.world.level.block.state.properties.IntegerProperty CHARGE;",
+   "verified": true,
+   "notes": "Also present: MIN_CHARGES, MAX_CHARGES (public static final int). canBeCharged() is private; the vanilla explode path requires state.getValue(CHARGE) != 0."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.Level",
+   "member": "public abstract net.minecraft.world.attribute.EnvironmentAttributeSystem environmentAttributes();",
+   "verified": true,
+   "notes": "Covariant narrowing of LevelReader's `public abstract net.minecraft.world.attribute.EnvironmentAttributeReader environmentAttributes();`. javap -p on Level prints BOTH lines — the EnvironmentAttributeReader one is the synthetic bridge, not a second overload."
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.ClientLevel",
+   "member": "public net.minecraft.world.attribute.EnvironmentAttributeSystem environmentAttributes();",
+   "verified": true,
+   "notes": "Client-visible. Backed by `private final EnvironmentAttributeSystem environmentAttributes;` built in the ctor: `this.environmentAttributes = this.addEnvironmentAttributeLayers(EnvironmentAttributeSystem.builder()).build();` where addEnvironmentAttributeLayers calls `environmentAttributes.addDefaultLayers(this)`. Ticked via `this.environmentAttributes().invalidateTickCache();`."
+  },
+  {
+   "fqcn": "net.minecraft.world.attribute.EnvironmentAttributeReader",
+   "member": "public default <Value> Value getValue(net.minecraft.world.attribute.EnvironmentAttribute<Value>, net.minecraft.core.BlockPos);",
+   "verified": true,
+   "notes": "This is the overload RespawnAnchorBlock.canSetSpawn uses. Body: `return this.getValue(attribute, Vec3.atCenterOf(pos));` -> `getValue(attribute, pos, null)`."
+  },
+  {
+   "fqcn": "net.minecraft.world.attribute.EnvironmentAttributeReader",
+   "member": "public abstract <Value> Value getDimensionValue(net.minecraft.world.attribute.EnvironmentAttribute<Value>);",
+   "verified": true,
+   "notes": "DO NOT use for RESPAWN_ANCHOR_WORKS. EnvironmentAttributeSystem's impl opens with `if (SharedConstants.IS_RUNNING_IN_IDE && attribute.isPositional()) throw new IllegalStateException(\"Position must always be provided for positional attribute \" + attribute);`. RESPAWN_ANCHOR_WORKS is positional, so this is a hard crash in any dev launcher that flips IS_RUNNING_IN_IDE."
+  },
+  {
+   "fqcn": "net.minecraft.world.attribute.EnvironmentAttributeReader",
+   "member": "public abstract <Value> Value getValue(net.minecraft.world.attribute.EnvironmentAttribute<Value>, net.minecraft.world.phys.Vec3, net.minecraft.world.attribute.SpatialAttributeInterpolator);",
+   "verified": true,
+   "notes": "The one abstract positional accessor. Pass null for the interpolator; the biome layer then falls back to biomeManager.getNoiseBiomeAtPosition(pos.x, pos.y, pos.z). Also on the interface: `public static final EnvironmentAttributeReader EMPTY;` (returns attribute.defaultValue() for everything)."
+  },
+  {
+   "fqcn": "net.minecraft.world.attribute.EnvironmentAttributeSystem",
+   "member": "public class net.minecraft.world.attribute.EnvironmentAttributeSystem implements net.minecraft.world.attribute.EnvironmentAttributeReader",
+   "verified": true,
+   "notes": "Only public entry points are builder(), invalidateTickCache(), getDimensionValue(...), getValue(attr, Vec3, SpatialAttributeInterpolator). Layers are baked per attribute at construction from: dimensionType().attributes() (constant layer) + per-biome positional layers + timeline time-based layers + weather layers. No way to read the raw dimension entry through it — use dimensionType().attributes() for that."
+  },
+  {
+   "fqcn": "net.minecraft.world.attribute.EnvironmentAttribute",
+   "member": "public boolean isSyncable();",
+   "verified": true,
+   "notes": "Also `public boolean isPositional();`, `public boolean isSpatiallyInterpolated();`, `public Value defaultValue();`. Builder defaults (decompiled): isSyncable=false, isPositional=true, isSpatiallyInterpolated=false. RESPAWN_ANCHOR_WORKS therefore reports isSyncable()==false, isPositional()==true."
+  },
+  {
+   "fqcn": "net.minecraft.world.attribute.EnvironmentAttributeMap",
+   "member": "public static final com.mojang.serialization.Codec<net.minecraft.world.attribute.EnvironmentAttributeMap> NETWORK_CODEC;",
+   "verified": true,
+   "notes": "Decompiled: `NETWORK_CODEC = CODEC.xmap(EnvironmentAttributeMap::filterSyncable, EnvironmentAttributeMap::filterSyncable)` with `filterSyncable = Maps.filterKeys(entries, EnvironmentAttribute::isSyncable)`. xmap applies it on DECODE as well as encode, so a client that parses a dimension_type through this codec drops every non-syncable attribute. This is a read of the codec chain, not an executed round-trip — I did not stand up a JVM with the MC classpath to decode a JSON and print keySet()."
+  },
+  {
+   "fqcn": "net.minecraft.world.attribute.EnvironmentAttributeMap",
+   "member": "public boolean contains(net.minecraft.world.attribute.EnvironmentAttribute<?>);",
+   "verified": true,
+   "notes": "Useful as the direct client-side probe of whether the attribute survived sync: level.dimensionType().attributes().contains(EnvironmentAttributes.RESPAWN_ANCHOR_WORKS) should be false on a client. Also public: `<Value> Entry<Value,?> get(EnvironmentAttribute<Value>)`, `<Value> Value applyModifier(EnvironmentAttribute<Value>, Value)`, `Set<EnvironmentAttribute<?>> keySet()`, `static Builder builder()`, `static final EnvironmentAttributeMap EMPTY`."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.dimension.DimensionType",
+   "member": "public static final com.mojang.serialization.Codec<net.minecraft.world.level.dimension.DimensionType> NETWORK_CODEC;",
+   "verified": true,
+   "notes": "`NETWORK_CODEC = createDirectCodec(EnvironmentAttributeMap.NETWORK_CODEC)` vs `DIRECT_CODEC = createDirectCodec(EnvironmentAttributeMap.CODEC)`. Every other record field uses the identical codec in both — `attributes` is the ONLY field that differs between disk and wire."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.dimension.DimensionType",
+   "member": "public static final net.minecraft.network.codec.StreamCodec<net.minecraft.network.RegistryFriendlyByteBuf, net.minecraft.core.Holder<net.minecraft.world.level.dimension.DimensionType>> STREAM_CODEC;",
+   "verified": true,
+   "notes": "= ByteBufCodecs.holderRegistry(Registries.DIMENSION_TYPE), which is `registry(key, Registry::asHolderIdMap)` — pure numeric-id, no direct-value fallback. Consequence: the Holder<DimensionType> a client gets is always a keyed Holder.Reference resolved out of its own synced DIMENSION_TYPE registry, so .is(ResourceKey) works on it."
+  },
+  {
+   "fqcn": "net.minecraft.resources.RegistryDataLoader",
+   "member": "public static final java.util.List<net.minecraft.resources.RegistryDataLoader$RegistryData<?>> SYNCHRONIZED_REGISTRIES;",
+   "verified": true,
+   "notes": "Contains `new RegistryData(Registries.DIMENSION_TYPE, DimensionType.NETWORK_CODEC)` and `new RegistryData(Registries.BIOME, Biome.NETWORK_CODEC)`. The separate WORLDGEN_REGISTRIES list (server/disk) uses DimensionType.DIRECT_CODEC. Client path: ClientConfigurationPacketListenerImpl -> RegistryDataCollector.loadNewElementsAndTags -> RegistryDataLoader.load(entriesToLoad, knownDataSource, ..., RegistryDataLoader.SYNCHRONIZED_REGISTRIES, ...) -> ClientRegistryLayer.REMOTE."
+  },
+  {
+   "fqcn": "net.minecraft.resources.NetworkRegistryLoadTask",
+   "member": "PendingRegistration.loadFromNetwork(this.data.elementCodec(), nbtOps, elementKey, networkContents.get()) / PendingRegistration.findAndLoadFromResource(this.data.elementCodec(), jsonOps, elementKey, knownDataPathConverter, this.knownDataSource)",
+   "verified": true,
+   "notes": "Both branches use data.elementCodec() — i.e. NETWORK_CODEC. So the known-pack shortcut (client reads minecraft:the_nether from its OWN local jar data instead of the wire) is filtered exactly the same way. There is no path by which a client ends up with the unfiltered attribute map."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.biome.Biome",
+   "member": "public net.minecraft.world.attribute.EnvironmentAttributeMap getAttributes();",
+   "verified": true,
+   "notes": "Biome.DIRECT_CODEC uses EnvironmentAttributeMap.CODEC_ONLY_POSITIONAL for \"attributes\"; Biome.NETWORK_CODEC uses EnvironmentAttributeMap.NETWORK_CODEC. RESPAWN_ANCHOR_WORKS is positional, so a datapack biome legally CAN override it — and that override is also stripped from the client. Second unsynced source of truth."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.Level",
+   "member": "public net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension();",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.Level",
+   "member": "public static final net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> OVERWORLD;",
+   "verified": true,
+   "notes": "= ResourceKey.create(Registries.DIMENSION, Identifier.withDefaultNamespace(\"overworld\")). Siblings NETHER = \"the_nether\", END = \"the_end\", same shape. Note the registry key is Registries.DIMENSION (not DIMENSION_TYPE)."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.Level",
+   "member": "public static final net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> NETHER;",
+   "verified": true,
+   "notes": "minecraft:the_nether."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.Level",
+   "member": "public static final net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> END;",
+   "verified": true,
+   "notes": "minecraft:the_end."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.Level",
+   "member": "public net.minecraft.core.Holder<net.minecraft.world.level.dimension.DimensionType> dimensionTypeRegistration();",
+   "verified": true,
+   "notes": "THE client-side test to use. Backed by `private final Holder<DimensionType> dimensionTypeRegistration;` set from the Level ctor's Holder<DimensionType> param. Sibling `public net.minecraft.world.level.dimension.DimensionType dimensionType();` returns the unwrapped record."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.dimension.BuiltinDimensionTypes",
+   "member": "public static final net.minecraft.resources.ResourceKey<net.minecraft.world.level.dimension.DimensionType> NETHER;",
+   "verified": true,
+   "notes": "= ResourceKey.create(Registries.DIMENSION_TYPE, Identifier.withDefaultNamespace(\"the_nether\")). Siblings OVERWORLD, END, OVERWORLD_CAVES. Verified against the shipped data: data/minecraft/dimension_type/the_nether.json is the ONLY vanilla dimension_type with \"minecraft:gameplay/respawn_anchor_works\": true; overworld.json and the_end.json both set it false; overworld_caves.json reuses the overworld attribute map."
+  },
+  {
+   "fqcn": "net.minecraft.core.Holder",
+   "member": "public abstract boolean is(net.minecraft.resources.ResourceKey<T>);",
+   "verified": true,
+   "notes": "Holder.Reference impl is `return this.key() == key;` (identity — safe because ResourceKey interns via a weak-valued ConcurrentMap and does NOT override equals). Holder.Direct impl is `return false;` unconditionally — harmless here since holderRegistry never emits a Direct holder."
+  },
+  {
+   "fqcn": "net.minecraft.network.protocol.game.CommonPlayerSpawnInfo",
+   "member": "public net.minecraft.core.Holder<net.minecraft.world.level.dimension.DimensionType> dimensionType();",
+   "verified": true,
+   "notes": "Record component decoded with `DimensionType.STREAM_CODEC.decode(input)`; the sibling `ResourceKey<Level> dimension()` is decoded with `input.readResourceKey(Registries.DIMENSION)`. This is what feeds the ClientLevel ctor: `public ClientLevel(ClientPacketListener, ClientLevel$ClientLevelData, ResourceKey<Level>, Holder<DimensionType>, int, int, LevelExtractor, boolean, long, int)`."
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.ClientPacketListener",
+   "member": "public net.minecraft.core.RegistryAccess$Frozen registryAccess();",
+   "verified": true,
+   "notes": "`this.registryAccess = cookie.receivedRegistries();` — the REMOTE layer built by RegistryDataCollector, i.e. the network-filtered copy. ClientLevel's ctor passes exactly this into super(...): `super(levelData, dimension, connection.registryAccess(), dimensionType, true, isDebug, biomeZoomSeed, 1000000);`. Singleplayer is not special-cased — the integrated server goes through the same configuration handshake."
+  },
+  {
+   "fqcn": "net.minecraft.world.attribute.EnvironmentAttributes",
+   "member": "public static final net.minecraft.world.attribute.EnvironmentAttribute<java.lang.Boolean> WATER_EVAPORATES;",
+   "verified": true,
+   "notes": "Registered WITH .syncable() and vanilla nether sets it true while overworld/end leave it at default false — so this one IS readable client-side and correlates with the nether. Same for FAST_LAVA (syncable, nether=true). Useful only as a heuristic for datapack nether-alikes; neither implies respawn_anchor_works."
+  },
+  {
+   "fqcn": "net.minecraft.core.TypedInstance",
+   "member": "public default boolean is(T);",
+   "verified": true,
+   "notes": "26.2 relocation: BlockState no longer gets is(Block) from StateHolder/BlockStateBase. BlockBehaviour$BlockStateBase now `implements net.minecraft.core.TypedInstance<Block>`, which supplies is(T), is(Holder<T>), is(ResourceKey<T>), is(TagKey<T>), is(HolderSet<T>). So blockState.is(Blocks.RESPAWN_ANCHOR) still compiles, just from a different declaring type."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.Blocks",
+   "member": "public static final net.minecraft.world.level.block.Block RESPAWN_ANCHOR;",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "public net.minecraft.client.multiplayer.ClientLevel level;",
+   "verified": true,
+   "notes": "Public nullable field; `public static net.minecraft.client.Minecraft getInstance();`."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.LevelReader",
+   "member": "public abstract net.minecraft.world.attribute.EnvironmentAttributeReader environmentAttributes();",
+   "verified": true,
+   "notes": "Where the interface-level accessor is declared, if you want a helper that takes LevelReader rather than ClientLevel."
+  }
+ ],
+ "gotchas": [
+  "THE ONE THAT WILL BITE YOU: EnvironmentAttributes.RESPAWN_ANCHOR_WORKS is NOT syncable, so the obvious client-side mirror of canSetSpawn compiles, runs, throws nothing — and is wrong. Chain: RESPAWN_ANCHOR_WORKS is built without .syncable() (Builder default isSyncable=false) -> EnvironmentAttributeMap.NETWORK_CODEC = CODEC.xmap(filterSyncable, filterSyncable) where filterSyncable = Maps.filterKeys(entries, EnvironmentAttribute::isSyncable), and xmap filters on DECODE too -> DimensionType.NETWORK_CODEC = createDirectCodec(EnvironmentAttributeMap.NETWORK_CODEC) -> RegistryDataLoader.SYNCHRONIZED_REGISTRIES binds Registries.DIMENSION_TYPE to that NETWORK_CODEC -> the client's DimensionType.attributes() has no respawn_anchor_works entry -> EnvironmentAttributeSystem.getValue falls through to attribute.defaultValue(), which is false. Net effect: mc.level.environmentAttributes().getValue(EnvironmentAttributes.RESPAWN_ANCHOR_WORKS, pos) returns false in EVERY dimension on the client, including the vanilla Nether where the server answers true. A naive client check predicts 'anchor explodes' everywhere and gets the Nether exactly backwards.",
+  "DimensionType.respawnAnchorWorks() is gone, and so are bedWorks(), ultraWarm(), piglinSafe() and natural(). Verified by javap -p (full member list, none present) plus a byte-level scan of the UTF8 constant pools of all 10,952 classes across minecraft-common.jar and minecraft-client-only.jar: 0 hits for each of those four names. Those booleans are now EnvironmentAttributes entries inside DimensionType.attributes() (an EnvironmentAttributeMap record component).",
+  "Do NOT call getDimensionValue(EnvironmentAttributes.RESPAWN_ANCHOR_WORKS). EnvironmentAttributeSystem.getDimensionValue starts with `if (SharedConstants.IS_RUNNING_IN_IDE && attribute.isPositional()) throw new IllegalStateException(\"Position must always be provided for positional attribute \" + attribute);` and RESPAWN_ANCHOR_WORKS is positional (Builder default isPositional=true; no .notPositional() call). SharedConstants.IS_RUNNING_IN_IDE is `public static boolean` with no initializer (false in the shipped jar) but is a mutable flag that dev launchers set — I did not verify whether Loom's runClient sets it, so treat the throw as live. Always use the positional overload getValue(attr, pos).",
+  "RespawnAnchorBlock.canSetSpawn takes ServerLevel, and the explode path (private void explode(BlockState, ServerLevel, BlockPos)) is server-only too. There is no client-visible vanilla helper — I searched every class in both jars for a 'respawnAnchorWorks' method name (0 hits) and for any reference to the RESPAWN_ANCHOR_WORKS field: exactly three classes touch it, all in minecraft-common (EnvironmentAttributes, which declares it; RespawnAnchorBlock, the server-only gate; and data/worldgen DimensionTypes, the datagen bootstrap). Zero client classes read it. You must reimplement the predicate yourself.",
+  "The dimension type is only HALF the story even on the server. canSetSpawn goes through EnvironmentAttributeSystem, whose layers are dimensionType().attributes() (constant) PLUS a per-biome positional layer built from Biome.getAttributes(). RESPAWN_ANCHOR_WORKS is positional and Biome.DIRECT_CODEC accepts positional attributes (EnvironmentAttributeMap.CODEC_ONLY_POSITIONAL), so a datapack biome can flip it per-position. Biome.NETWORK_CODEC filters by isSyncable identically, so biome overrides are invisible to the client as well. No vanilla biome touches it.",
+  "Level.dimension() == Level.NETHER is NOT the same predicate as the dimension type. Level.NETWORK/OVERWORLD/END are ResourceKey<Level> in Registries.DIMENSION (the world id: minecraft:overworld / the_nether / the_end); what canSetSpawn actually reads hangs off the DimensionType in Registries.DIMENSION_TYPE. A datapack can point a dimension named anything at the minecraft:the_nether dimension type (respawn anchors then work there), or give minecraft:the_nether a custom type. Prefer level.dimensionTypeRegistration().is(BuiltinDimensionTypes.NETHER) over a Level-key compare. It is safe: DimensionType.STREAM_CODEC is ByteBufCodecs.holderRegistry (id-only, no direct-value fallback), so the client's holder is always a keyed Holder.Reference and Holder.Reference.is(key) is `this.key() == key`; Holder.Direct.is(ResourceKey) would return false unconditionally but never occurs on this path.",
+  "Everything ELSE on DimensionType is synced faithfully — DIRECT_CODEC and NETWORK_CODEC are the same createDirectCodec() call and differ only in the codec handed to the \"attributes\" field. So hasCeiling(), coordinateScale(), skybox(), cardinalLightType(), ambientLight(), minY()/height()/logicalHeight(), monsterSettings(), infiniburn(), timelines(), defaultClock() are all trustworthy client-side. Two syncable attributes also correlate with the vanilla Nether and ARE readable client-side: WATER_EVAPORATES and FAST_LAVA (both .syncable(), both true only in the_nether.json). They are heuristics, not the real gate.",
+  "javap -p on Level prints TWO environmentAttributes() lines — `public abstract ...EnvironmentAttributeSystem environmentAttributes()` and `public ...EnvironmentAttributeReader environmentAttributes()`. The second is the synthetic covariant bridge for LevelReader.environmentAttributes(); it is not an overload and there is nothing to disambiguate. Same story for ClientLevel (which prints both EnvironmentAttributeSystem and EnvironmentAttributeReader) and for clockManager().",
+  "Unrelated 26.2 renames you will hit writing this code: ResourceLocation is now net.minecraft.resources.Identifier (ResourceKey.create(..., Identifier.withDefaultNamespace(\"the_nether\"))), and BlockState.is(Block) now comes from the new net.minecraft.core.TypedInstance<Block> interface rather than StateHolder/BlockBehaviour$BlockStateBase — grep BlockStateBase for `boolean is(` and you will only find is(TagKey, Predicate) and be misled.",
+  "Epistemic note on the sync claim: it is established by reading the full decompiled codec/loader chain (EnvironmentAttribute.Builder defaults -> EnvironmentAttributeMap.NETWORK_CODEC -> DimensionType.NETWORK_CODEC -> RegistryDataLoader.SYNCHRONIZED_REGISTRIES -> NetworkRegistryLoadTask (both the network AND known-pack-local-resource branches use data.elementCodec()) -> RegistryDataCollector -> ClientPacketListener.registryAccess() -> ClientLevel ctor -> EnvironmentAttributeSystem.addDimensionLayer), corroborated by the shipped data/minecraft/dimension_type/the_nether.json actually containing \"minecraft:gameplay/respawn_anchor_works\": true. I did not stand up a JVM with the Minecraft classpath to decode that JSON through NETWORK_CODEC and print the surviving keySet(); if you want a runtime assertion, level.dimensionType().attributes().contains(EnvironmentAttributes.RESPAWN_ANCHOR_WORKS) should be false on any client and true on a server."
+ ],
+ "usage": "// Client-side mirror of RespawnAnchorBlock.canSetSpawn(ServerLevel, BlockPos), which on the\n// server is exactly:\n//     level.environmentAttributes().getValue(EnvironmentAttributes.RESPAWN_ANCHOR_WORKS, pos)\n// That expression compiles on a ClientLevel but is USELESS there: RESPAWN_ANCHOR_WORKS is not\n// .syncable(), so DimensionType.NETWORK_CODEC strips it and the client always reads the\n// attribute default (false) -- including in the Nether. Test the synced dimension-type identity\n// instead; minecraft:the_nether is the only vanilla dimension type with respawn_anchor_works=true.\n\nimport net.minecraft.client.Minecraft;\nimport net.minecraft.client.multiplayer.ClientLevel;\nimport net.minecraft.core.BlockPos;\nimport net.minecraft.world.level.block.Blocks;\nimport net.minecraft.world.level.block.RespawnAnchorBlock;\nimport net.minecraft.world.level.block.state.BlockState;\nimport net.minecraft.world.level.dimension.BuiltinDimensionTypes;\n\npublic final class AnchorPredict {\n\n    /** True if using the respawn anchor at {@code pos} would detonate it. */\n    public static boolean wouldExplode(BlockPos pos) {\n        ClientLevel level = Minecraft.getInstance().level;\n        if (level == null) {\n            return false;\n        }\n        BlockState state = level.getBlockState(pos);\n        if (!state.is(Blocks.RESPAWN_ANCHOR) || state.getValue(RespawnAnchorBlock.CHARGE) == 0) {\n            return false; // uncharged anchors just PASS, they never boom\n        }\n        return !anchorWorksHere(level);\n    }\n\n    /** THE single best client-side stand-in for EnvironmentAttributes.RESPAWN_ANCHOR_WORKS. */\n    public static boolean anchorWorksHere(ClientLevel level) {\n        return level.dimensionTypeRegistration().is(BuiltinDimensionTypes.NETHER);\n    }\n\n    /**\n     * Proof, at runtime, that the attribute really is absent client-side: this returns false on\n     * any client and true on a server holding the vanilla nether dimension type.\n     */\n    public static boolean attributeSurvivedSync(ClientLevel level) {\n        return level.dimensionType()\n                    .attributes()\n                    .contains(net.minecraft.world.attribute.EnvironmentAttributes.RESPAWN_ANCHOR_WORKS);\n    }\n}"
+}

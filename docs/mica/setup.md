@@ -83,7 +83,7 @@ public final class FabricClientEntry implements ClientModInitializer {
                 .build();
 
         renderer.registerElement(new MyHudElement());
-        ActiveRenderers.set(renderer);
+        renderer.makeActive();
     }
 }
 ```
@@ -97,13 +97,15 @@ finishes its vanilla GUI submissions.
 
 ```java
 ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
-    ActiveRenderers.set(null);
     renderer.close();
 });
 ```
 
-`close()` releases Vulkan descriptor pools, the font atlas upload resource, and the
-two ping-pong blur targets.
+`close()` stands down as the active renderer first, then releases the Vulkan descriptor
+pools, the font atlas upload resource and the two ping-pong blur targets. Vacating the
+slot before the teardown matters: the input and frame mixins reach the renderer on every
+event, and a half-shut one left in the slot is one they can still be handed. There is
+nothing else to unregister.
 
 ## What goes wrong if you skip a step
 
@@ -111,7 +113,7 @@ two ping-pong blur targets.
 | --------------------------------------------- | ----------------------------------------------------------------- |
 | `withMinecraftCompat(...)`                    | `IllegalStateException` at builder time.                           |
 | The `libs/` drop                              | `NoClassDefFoundError: dev/technix/mica/api/OverlayRenderer` on the first class load. |
-| `ActiveRenderers.set(renderer)`               | Renderer exists but none of its `renderOverlay()` triggers fire.   |
+| `makeActive()`                                | Renderer exists but none of its `renderOverlay()` triggers fire.   |
 | `withFrostedGlass(true)` (omit)               | Panes draw without a backdrop. Use the explicit `Draw.frostedPanel` overloads to hand-draw the backdrop. |
 
 ## OpenGL fallback

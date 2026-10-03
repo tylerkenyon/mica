@@ -1,0 +1,352 @@
+{
+ "area": "Client-side block placement prediction on Minecraft 26.2 (Mojang official mappings): where a block lands (BlockPlaceContext) and whether placement would succeed (BlockItem/BlockState/CollisionGetter legality chain)",
+ "signatures": [
+  {
+   "fqcn": "net.minecraft.world.item.context.UseOnContext",
+   "member": "public net.minecraft.world.item.context.UseOnContext(net.minecraft.world.entity.player.Player, net.minecraft.world.InteractionHand, net.minecraft.world.phys.BlockHitResult);",
+   "notes": "The ONLY public UseOnContext ctor. Body: this(player.level(), player, hand, player.getItemInHand(hand), hitResult) — stack is taken from the hand, you cannot supply your own. Client-safe: player.level() is the ClientLevel.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.context.UseOnContext",
+   "member": "protected net.minecraft.world.item.context.UseOnContext(net.minecraft.world.level.Level, net.minecraft.world.entity.player.Player, net.minecraft.world.item.ItemStack, net.minecraft.world.phys.BlockHitResult);",
+   "notes": "WRONG ARITY WARNING — the real one is 5 params, see next row. Listed here only so the 4-vs-5 confusion is explicit; javap prints the 5-param form.",
+   "verified": false
+  },
+  {
+   "fqcn": "net.minecraft.world.item.context.UseOnContext",
+   "member": "protected net.minecraft.world.item.context.UseOnContext(net.minecraft.world.level.Level, net.minecraft.world.entity.player.Player, net.minecraft.world.InteractionHand, net.minecraft.world.item.ItemStack, net.minecraft.world.phys.BlockHitResult);",
+   "notes": "PROTECTED. Player is @Nullable. This is the only ctor that accepts an explicit Level — not callable from ordinary client code.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.context.UseOnContext",
+   "member": "protected final net.minecraft.world.phys.BlockHitResult getHitResult();",
+   "notes": "protected final — cannot read the raw BlockHitResult back from outside the class hierarchy. Keep your own reference.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.context.UseOnContext",
+   "member": "public net.minecraft.core.BlockPos getClickedPos();",
+   "notes": "Base impl = hitResult.getBlockPos() (the block you aimed at, NOT the placement pos). BlockPlaceContext overrides it.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.context.UseOnContext",
+   "member": "public net.minecraft.world.level.Level getLevel();",
+   "notes": "public. Also getPlayer() (@Nullable Player), getHand(), getItemInHand(), getClickedFace(), getClickLocation(), isInside(), getHorizontalDirection(), isSecondaryUseActive(), getRotation() — all public.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.context.BlockPlaceContext",
+   "member": "public net.minecraft.world.item.context.BlockPlaceContext(net.minecraft.world.entity.player.Player, net.minecraft.world.InteractionHand, net.minecraft.world.item.ItemStack, net.minecraft.world.phys.BlockHitResult);",
+   "notes": "THE client-usable ctor. Body: this(player.level(), player, hand, itemInHand, hitResult). Takes an explicit ItemStack (unlike UseOnContext). No server needed.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.context.BlockPlaceContext",
+   "member": "public net.minecraft.world.item.context.BlockPlaceContext(net.minecraft.world.item.context.UseOnContext);",
+   "notes": "public copy-ctor; what BlockItem.useOn uses internally.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.context.BlockPlaceContext",
+   "member": "protected net.minecraft.world.item.context.BlockPlaceContext(net.minecraft.world.level.Level, net.minecraft.world.entity.player.Player, net.minecraft.world.InteractionHand, net.minecraft.world.item.ItemStack, net.minecraft.world.phys.BlockHitResult);",
+   "notes": "PROTECTED, Player @Nullable. This is the (Level, Player, InteractionHand, ItemStack, BlockHitResult) ctor the question asked about — it is NOT public on 26.2. Ctor body sets relativePos = hitResult.getBlockPos().relative(hitResult.getDirection()) and replaceClicked = level.getBlockState(hitResult.getBlockPos()).canBeReplaced(this).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.context.BlockPlaceContext",
+   "member": "public static net.minecraft.world.item.context.BlockPlaceContext at(net.minecraft.world.item.context.BlockPlaceContext, net.minecraft.core.BlockPos, net.minecraft.core.Direction);",
+   "notes": "public static escape hatch: re-targets an existing context at an arbitrary pos/face by synthesising a BlockHitResult at the face centre. Client-callable.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.context.BlockPlaceContext",
+   "member": "public net.minecraft.core.BlockPos getClickedPos();",
+   "notes": "ANSWER to Q2 (position the block will occupy). Body: return this.replaceClicked ? super.getClickedPos() : this.relativePos;  i.e. the hit block itself if that block is replaceable, otherwise hitPos.relative(hitFace).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.context.BlockPlaceContext",
+   "member": "public boolean canPlace();",
+   "notes": "Body: return this.replaceClicked || this.getLevel().getBlockState(this.getClickedPos()).canBeReplaced(this);  ONLY a replaceability test on the target pos — no survival, no entity check, no reach, no permission.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.context.BlockPlaceContext",
+   "member": "public boolean replacingClickedOnBlock();",
+   "notes": "Body: return this.replaceClicked; — the field, computed once in the ctor. Stale if the world changes after construction.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.context.BlockPlaceContext",
+   "member": "protected boolean replaceClicked;",
+   "notes": "protected field, initialised to true then overwritten in the ctor.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.context.BlockPlaceContext",
+   "member": "public net.minecraft.core.Direction getNearestLookingDirection(); / public net.minecraft.core.Direction getNearestLookingVerticalDirection(); / public net.minecraft.core.Direction[] getNearestLookingDirections();",
+   "notes": "All three dereference getPlayer() via Direction.orderedByNearest(Entity) / Direction.getFacingAxis(Entity, Axis) with no null check — NPE if the context has a null player.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.context.DirectionalPlaceContext",
+   "member": "public net.minecraft.world.item.context.DirectionalPlaceContext(net.minecraft.world.level.Level, net.minecraft.core.BlockPos, net.minecraft.core.Direction, net.minecraft.world.item.ItemStack, net.minecraft.core.Direction);",
+   "notes": "extends BlockPlaceContext with a PUBLIC ctor that DOES take an explicit Level (and no Player — passes null). Client-callable. Different semantics: getClickedPos() never offsets (always the hit pos), canPlace() = level.getBlockState(hitPos).canBeReplaced(this), isSecondaryUseActive()=false, getRotation()=0. Use it only for dispenser-style placement, not to emulate a player.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase",
+   "member": "public boolean canBeReplaced(net.minecraft.world.item.context.BlockPlaceContext);",
+   "notes": "ANSWER to Q3, overload 1 of 3. Reached as BlockState.canBeReplaced(ctx) (BlockState extends BlockStateBase). Delegates to Block.canBeReplaced(state, ctx).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase",
+   "member": "public boolean canBeReplaced(net.minecraft.world.level.material.Fluid);",
+   "notes": "Overload 2 of 3 — fluid flow, not item placement.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase",
+   "member": "public boolean canBeReplaced();",
+   "notes": "Overload 3 of 3. Body: return this.replaceable; — raw Properties.replaceable() flag, no context. Cheapest 'is this air/grass/water' test.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase",
+   "member": "public boolean canSurvive(net.minecraft.world.level.LevelReader, net.minecraft.core.BlockPos);",
+   "notes": "ANSWER to Q5 (survival half). The ONLY public entry point. Body: return this.getBlock().canSurvive(this.asState(), level, pos);",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase",
+   "member": "public net.minecraft.world.phys.shapes.VoxelShape getCollisionShape(net.minecraft.world.level.BlockGetter, net.minecraft.core.BlockPos, net.minecraft.world.phys.shapes.CollisionContext);",
+   "notes": "public; what isUnobstructed(state,pos,ctx) calls internally. 2-arg overload without CollisionContext also public.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.state.BlockBehaviour",
+   "member": "protected boolean canBeReplaced(net.minecraft.world.level.block.state.BlockState, net.minecraft.world.item.context.BlockPlaceContext);",
+   "notes": "PROTECTED. Default body: return state.canBeReplaced() && (context.getItemInHand().isEmpty() || !context.getItemInHand().is(this.asItem())); — note the same-item refusal (why you can't re-place snow layers into snow via the generic path).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.state.BlockBehaviour",
+   "member": "protected boolean canSurvive(net.minecraft.world.level.block.state.BlockState, net.minecraft.world.level.LevelReader, net.minecraft.core.BlockPos);",
+   "notes": "PROTECTED, default body `return true`. Not callable from client code — go through BlockState.canSurvive(LevelReader, BlockPos).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.Block",
+   "member": "canSurvive(...)",
+   "notes": "DOES NOT EXIST on Block. `javap -p net.minecraft.world.level.block.Block | grep canSurvive` returns nothing — Block declares no canSurvive; it only inherits the protected BlockBehaviour one. There is no `Block.canSurvive` to call.",
+   "verified": false
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.Block",
+   "member": "public net.minecraft.world.level.block.state.BlockState getStateForPlacement(net.minecraft.world.item.context.BlockPlaceContext);",
+   "notes": "PUBLIC and @Nullable (default body: return this.defaultBlockState()). This is the client-visible replacement for the protected BlockItem.getPlacementState.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.Block",
+   "member": "public static net.minecraft.world.level.block.state.BlockState updateFromNeighbourShapes(net.minecraft.world.level.block.state.BlockState, net.minecraft.world.level.LevelAccessor, net.minecraft.core.BlockPos);",
+   "notes": "public static; useful if you want the post-neighbour-update state (fences/walls/stairs) rather than the raw placement state.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.BlockItem",
+   "member": "public net.minecraft.world.InteractionResult place(net.minecraft.world.item.context.BlockPlaceContext);",
+   "notes": "PUBLIC but MUTATING — do not use as a probe. Order: block.isEnabled(level.enabledFeatures()) -> ctx.canPlace() -> updatePlacementContext -> getPlacementState -> placeBlock (level.setBlock(pos, state, 11)) -> level.playSound -> level.gameEvent -> itemStack.consume(1, player). On a ClientLevel it really sets the block and really shrinks the client stack.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.BlockItem",
+   "member": "public net.minecraft.world.InteractionResult useOn(net.minecraft.world.item.context.UseOnContext);",
+   "notes": "public; body calls this.place(new BlockPlaceContext(context)).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.BlockItem",
+   "member": "protected boolean canPlace(net.minecraft.world.item.context.BlockPlaceContext, net.minecraft.world.level.block.state.BlockState);",
+   "notes": "ANSWER to Q4 — this is THE legality decision, and it is PROTECTED (not client-callable). Exact body: return (!this.mustSurvive() || stateForPlacement.canSurvive(context.getLevel(), context.getClickedPos())) && context.getLevel().isUnobstructed(stateForPlacement, context.getClickedPos(), CollisionContext.placementContext(player)); — every symbol in it is public, so replicate it verbatim. Only BlockItem declares this method (scanned all of net.minecraft.world.item).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.BlockItem",
+   "member": "protected net.minecraft.world.level.block.state.BlockState getPlacementState(net.minecraft.world.item.context.BlockPlaceContext);",
+   "notes": "PROTECTED, @Nullable. Body: BlockState s = this.getBlock().getStateForPlacement(context); return s != null && this.canPlace(context, s) ? s : null; Overridden only by GameMasterBlockItem and StandingAndWallBlockItem — for those two, Block.getStateForPlacement alone gives the wrong state.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.BlockItem",
+   "member": "protected boolean placeBlock(net.minecraft.world.item.context.BlockPlaceContext, net.minecraft.world.level.block.state.BlockState);",
+   "notes": "PROTECTED and destructive: return context.getLevel().setBlock(context.getClickedPos(), placementState, 11);",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.BlockItem",
+   "member": "protected boolean mustSurvive();",
+   "notes": "PROTECTED, returns true. Overridden to false only by net.minecraft.world.item.ScaffoldingBlockItem (verified by scanning the package for the symbol). You cannot read it from client code.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.BlockItem",
+   "member": "public net.minecraft.world.item.context.BlockPlaceContext updatePlacementContext(net.minecraft.world.item.context.BlockPlaceContext);",
+   "notes": "PUBLIC and @Nullable (returns the context unchanged by default). Overridden by ScaffoldingBlockItem. Call it before getStateForPlacement if you want to match vanilla exactly.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.BlockItem",
+   "member": "public net.minecraft.world.level.block.Block getBlock();",
+   "notes": "public.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.CollisionGetter",
+   "member": "public default boolean isUnobstructed(net.minecraft.world.level.block.state.BlockState, net.minecraft.core.BlockPos, net.minecraft.world.phys.shapes.CollisionContext);",
+   "notes": "ANSWER to Q5 (no-entity-in-the-way half). Body: VoxelShape shape = state.getCollisionShape(this, pos, context); return shape.isEmpty() || this.isUnobstructed(null, shape.move(pos)); Callable on a Level/ClientLevel reference.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.CollisionGetter",
+   "member": "public default boolean isUnobstructed(net.minecraft.world.entity.Entity, net.minecraft.world.phys.shapes.VoxelShape);",
+   "notes": "STUB — body is literally `return true;`. On a bare CollisionGetter the entity check is a no-op.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.EntityGetter",
+   "member": "public default boolean isUnobstructed(net.minecraft.world.entity.Entity, net.minecraft.world.phys.shapes.VoxelShape);",
+   "notes": "The REAL implementation: iterates getEntities(source, shape.bounds()) and returns false for any !isRemoved() && entity.blocksBuilding entity whose bounding box intersects the shape (skipping passengers of the same vehicle).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.CommonLevelAccessor",
+   "member": "public default boolean isUnobstructed(net.minecraft.world.entity.Entity, net.minecraft.world.phys.shapes.VoxelShape);",
+   "notes": "Diamond disambiguator. Bytecode (javap -c) shows invokespecial -> InterfaceMethod net/minecraft/world/level/EntityGetter.isUnobstructed, so through a Level the real entity check runs, not the CollisionGetter stub. Level implements LevelAccessor -> CommonLevelAccessor -> {LevelReader -> CollisionGetter, EntityGetter}.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.phys.shapes.CollisionContext",
+   "member": "public static net.minecraft.world.phys.shapes.CollisionContext placementContext(net.minecraft.world.entity.player.Player);",
+   "notes": "Player is @Nullable. This is what vanilla BlockItem.canPlace passes. Builds an EntityCollisionContext with placement=true, so CollisionContext.isPlacement() is true and placement-sensitive collision shapes are used.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.phys.shapes.CollisionContext",
+   "member": "public static net.minecraft.world.phys.shapes.CollisionContext empty(); / public static net.minecraft.world.phys.shapes.CollisionContext of(net.minecraft.world.entity.Entity); / public static net.minecraft.world.phys.shapes.CollisionContext of(net.minecraft.world.entity.Entity, boolean); / public static net.minecraft.world.phys.shapes.CollisionContext positionContext(double); / public static net.minecraft.world.phys.shapes.CollisionContext withPosition(net.minecraft.world.entity.Entity, double);",
+   "notes": "All public static. None of these set placement=true — using them in place of placementContext changes the answer for placement-sensitive blocks.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.phys.shapes.CollisionContext",
+   "member": "public default boolean isPlacement();",
+   "notes": "Interface default returns false; EntityCollisionContext overrides it from its `placement` field.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public boolean mayUseItemAt(net.minecraft.core.BlockPos, net.minecraft.core.Direction, net.minecraft.world.item.ItemStack);",
+   "notes": "public, client-callable. Body: true if abilities.mayBuild, else adventure-mode CAN_PLACE_ON check against BlockInWorld(this.level(), pos.relative(direction.getOpposite()), false) via itemStack.canPlaceOnBlockInAdventureMode.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public boolean mayBuild();",
+   "notes": "public; returns this.abilities.mayBuild.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public boolean isWithinBlockInteractionRange(net.minecraft.core.BlockPos, double);",
+   "notes": "public. Body: new AABB(pos).distanceToSqr(this.getEyePosition()) < r*r where r = blockInteractionRange() + buffer. The client-visible reach check.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public double blockInteractionRange();",
+   "notes": "public; getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.Entity",
+   "member": "public net.minecraft.world.level.Level level();",
+   "notes": "public; returns ClientLevel on the client. This is what the public BlockPlaceContext ctor uses.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.Level",
+   "member": "public boolean isInWorldBounds(net.minecraft.core.BlockPos);",
+   "notes": "public. Body: isInsideBuildHeight(pos) && isInWorldBoundsHorizontal(pos).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.Level",
+   "member": "public boolean mayInteract(net.minecraft.world.entity.Entity, net.minecraft.core.BlockPos);",
+   "notes": "SERVER-SEMANTICS ONLY. Base Level body is `return true;` — ServerLevel overrides it for spawn protection. Calling it on a ClientLevel always says yes, so it is worthless for client prediction and there is no client-visible alternative.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.Level",
+   "member": "public boolean setBlock(net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState, int);",
+   "notes": "public; works on ClientLevel and creates a local ghost block. Also public: getBlockState(BlockPos), isClientSide(), isLoaded(BlockPos).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.CollisionGetter",
+   "member": "public abstract net.minecraft.world.level.border.WorldBorder getWorldBorder();",
+   "notes": "Declared on CollisionGetter, NOT on Level. Implemented as `public net.minecraft.world.level.border.WorldBorder getWorldBorder();` on net.minecraft.client.multiplayer.ClientLevel. Still callable through a Level-typed reference.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.border.WorldBorder",
+   "member": "public boolean isWithinBounds(net.minecraft.core.BlockPos);",
+   "notes": "public; the same gate MultiPlayerGameMode.useItemOn applies before it even sends the packet.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "public net.minecraft.world.InteractionResult useItemOn(net.minecraft.client.player.LocalPlayer, net.minecraft.world.InteractionHand, net.minecraft.world.phys.BlockHitResult);",
+   "notes": "public. Body: worldBorder gate, then startPrediction(level, seq -> { performUseItemOn(...); return new ServerboundUseItemOnPacket(hand, blockHit, seq); }). performUseItemOn does `new UseOnContext(player, hand, blockHit)` then `itemStack.useOn(context)` — so vanilla DOES place client-side, but only inside a rollback-tracked prediction.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "private void startPrediction(net.minecraft.client.multiplayer.ClientLevel, net.minecraft.client.multiplayer.prediction.PredictiveAction);",
+   "notes": "PRIVATE. You need an accessor mixin to place blocks the vanilla-safe (ack-rollback) way; calling BlockItem.place outside it desyncs.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.ItemStack",
+   "member": "public net.minecraft.world.InteractionResult useOn(net.minecraft.world.item.context.UseOnContext); / public net.minecraft.world.item.Item getItem(); / public boolean isEmpty();",
+   "notes": "all public.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.phys.BlockHitResult",
+   "member": "public net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3, net.minecraft.core.Direction, net.minecraft.core.BlockPos, boolean);",
+   "notes": "public; 5-arg (Vec3, Direction, BlockPos, boolean, boolean) also public. Accessors getBlockPos(), getDirection(), isInside(), isWorldBorderHit(), withDirection(Direction), withPosition(BlockPos) all public.",
+   "verified": true
+  }
+ ],
+ "gotchas": [
+  "The (Level, Player, InteractionHand, ItemStack, BlockHitResult) ctor is PROTECTED on both UseOnContext and BlockPlaceContext on 26.2. A client can absolutely build a BlockPlaceContext with no server — but through `new BlockPlaceContext(Player, InteractionHand, ItemStack, BlockHitResult)`, which derives the level from `player.level()`. You therefore CANNOT inject a Level different from player.level(); a caller that assumed the 5-arg ctor was public will not compile. The only public ctor that takes an explicit Level is DirectionalPlaceContext, and it forces player=null plus dispenser semantics.",
+  "BlockPlaceContext.canPlace() is NOT a placement-legality check, despite the name. Its body is `replaceClicked || level.getBlockState(getClickedPos()).canBeReplaced(this)` — pure replaceability of the target position. It knows nothing about block survival, entities in the way, reach, adventure mode, or the world border. Treating canPlace() as 'placement succeeds' will report true for a stone block placed inside a standing mob.",
+  "The real legality decision lives in `BlockItem.canPlace(BlockPlaceContext, BlockState)` and it is PROTECTED — uncallable from client code. Every symbol inside its body is public, so replicate it verbatim: `(!mustSurvive() || state.canSurvive(level, pos)) && level.isUnobstructed(state, pos, CollisionContext.placementContext(player))`. `mustSurvive()` is also protected (true by default, false only for ScaffoldingBlockItem), so client code has to hardcode `true` and will wrongly reject scaffolding.",
+  "BlockItem.place(BlockPlaceContext) is public but MUTATES: placeBlock does `level.setBlock(pos, state, 11)` and place() then fires playSound, gameEvent and `itemStack.consume(1, player)`. On a ClientLevel that creates a real local ghost block and really shrinks the client's stack. Never call it as a 'would this work' probe. Vanilla only calls it (via ItemStack.useOn) inside MultiPlayerGameMode.startPrediction, which is private, so the change can be rolled back on server ack.",
+  "Level.mayInteract(Entity, BlockPos) returns `true` unconditionally on the base Level class — ServerLevel overrides it for spawn protection. So a client-side prediction structurally cannot see spawn protection, and there is no client-visible substitute. Same blind spot for the server's own reach/anticheat in ServerGamePacketListenerImpl.",
+  "`Block.canSurvive` does not exist on 26.2. javap on net.minecraft.world.level.block.Block shows no canSurvive declaration at all; it only inherits `protected boolean canSurvive(BlockState, LevelReader, BlockPos)` from BlockBehaviour. The one public entry point is `BlockState.canSurvive(LevelReader, BlockPos)` on BlockBehaviour$BlockStateBase.",
+  "CollisionGetter.isUnobstructed(Entity, VoxelShape) is a stub whose body is `return true;`. The genuine entity-overlap logic is EntityGetter.isUnobstructed, wired in by CommonLevelAccessor (bytecode confirms invokespecial to EntityGetter.isUnobstructed). Consequence: `level.isUnobstructed(state, pos, ctx)` on a Level/ClientLevel does the real check, but the same call against a plain CollisionGetter reference (a chunk view, a snapshot wrapper) silently passes every entity test.",
+  "26.2 wants `CollisionContext.placementContext(@Nullable Player)` here, not `of(player)` or `empty()`. placementContext sets placement=true so CollisionContext.isPlacement() is true; the other factories leave it false, which can yield a different collision shape for placement-sensitive blocks and make your prediction disagree with vanilla.",
+  "BlockState.canBeReplaced has three overloads on 26.2 and only one is the placement one. `canBeReplaced(BlockPlaceContext)` is placement; `canBeReplaced(Fluid)` is fluid flow; the no-arg `canBeReplaced()` just returns the `replaceable` Properties flag. The default BlockBehaviour body for the placement overload is `state.canBeReplaced() && (ctx.getItemInHand().isEmpty() || !ctx.getItemInHand().is(this.asItem()))` — the same-item clause means a replaceable block refuses to be replaced by its own item.",
+  "`replaceClicked` (and therefore getClickedPos() and replacingClickedOnBlock()) is computed once inside the constructor, before your code runs. Cache a BlockPlaceContext across a world change and it silently reports the old target position. Rebuild it every tick / after every setBlock.",
+  "getNearestLookingDirection(), getNearestLookingVerticalDirection() and getNearestLookingDirections() on BlockPlaceContext dereference getPlayer() with no null guard (Direction.orderedByNearest(Entity) reads entity.getViewXRot immediately). getPlayer() is @Nullable, and DirectionalPlaceContext is the only subclass that overrides them — so calling them on a player-less context NPEs.",
+  "UseOnContext.getHitResult() is `protected final`, so once you hand a BlockHitResult to a context you cannot read it back out. Keep your own reference if you need hit.getDirection() later.",
+  "BlockItem.getPlacementState is protected and is overridden by GameMasterBlockItem and StandingAndWallBlockItem; updatePlacementContext (public, @Nullable) is overridden by ScaffoldingBlockItem. For those items, calling only the public `Block.getStateForPlacement(ctx)` gives a state vanilla would not have placed. For a plain full-cube block the default path (defaultBlockState()) is exact.",
+  "Level.getWorldBorder() is not declared on Level — it comes from CollisionGetter as an abstract method and is implemented on ClientLevel. It compiles fine off a Level-typed reference, but reflection/AT work keyed to `Level.getWorldBorder` will not find it."
+ ],
+ "usage": "// Verified against MC 26.2 (Mojang mappings). This file COMPILES against\n// ~/.gradle/caches/fabric-loom/26.2/{minecraft-common,minecraft-client-only}.jar (javac 25, exit 0).\n// Read-only: it never calls BlockItem.place / Level.setBlock, so it cannot desync the client.\nimport net.minecraft.core.BlockPos;\nimport net.minecraft.world.InteractionHand;\nimport net.minecraft.world.entity.player.Player;\nimport net.minecraft.world.item.BlockItem;\nimport net.minecraft.world.item.ItemStack;\nimport net.minecraft.world.item.context.BlockPlaceContext;\nimport net.minecraft.world.level.Level;\nimport net.minecraft.world.level.block.state.BlockState;\nimport net.minecraft.world.phys.BlockHitResult;\nimport net.minecraft.world.phys.shapes.CollisionContext;\n\npublic final class PlacementPredictor {\n    public record Prediction(BlockPos pos, boolean likelySucceeds) {}\n\n    /** `level` must be player.level() -- the public ctor ignores any other Level (5-arg ctor is protected). */\n    public static Prediction predict(Level level, Player player, InteractionHand hand,\n                                     ItemStack stack, BlockHitResult hit) {\n        BlockPlaceContext ctx = new BlockPlaceContext(player, hand, stack, hit);\n        BlockPos pos = ctx.getClickedPos();          // hit pos if replaceable, else hitPos.relative(face)\n\n        if (!(stack.getItem() instanceof BlockItem blockItem)) return new Prediction(pos, false);\n        if (!ctx.canPlace()) return new Prediction(pos, false);                     // target pos replaceable?\n        if (!level.isInWorldBounds(pos)) return new Prediction(pos, false);\n        if (!level.getWorldBorder().isWithinBounds(pos)) return new Prediction(pos, false);\n        if (!player.mayUseItemAt(pos, hit.getDirection(), stack)) return new Prediction(pos, false);\n        if (!player.isWithinBlockInteractionRange(pos, 1.0)) return new Prediction(pos, false);\n\n        // public stand-in for the protected BlockItem.getPlacementState\n        BlockState state = blockItem.getBlock().getStateForPlacement(ctx);\n        if (state == null) return new Prediction(pos, false);\n\n        // verbatim body of the protected BlockItem.canPlace(ctx, state), with mustSurvive() assumed true\n        boolean ok = state.canSurvive(level, pos)\n                && level.isUnobstructed(state, pos, CollisionContext.placementContext(player));\n        return new Prediction(pos, ok);\n    }\n\n    public static boolean replacesClickedBlock(Player player, InteractionHand hand,\n                                              ItemStack stack, BlockHitResult hit) {\n        return new BlockPlaceContext(player, hand, stack, hit).replacingClickedOnBlock();\n    }\n}\n// Known blind spots (no client-visible API): ServerLevel spawn protection (Level.mayInteract is\n// hardcoded true client-side), server-side reach/anticheat, and BlockItem.mustSurvive()==false\n// (scaffolding) which is protected and so assumed true above."
+}

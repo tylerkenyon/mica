@@ -61,7 +61,7 @@ ping-pong targets so the new divisor takes effect.
 
 ## Font atlas
 
-`dev.technix.mica.internal.ImGuiFonts` rasterises Mica's bundled SF Pro Display
+`dev.technix.mica.internal.ImGuiFonts` rasterises Mica's default faces from the OS UI font (`SystemFonts`)
 faces plus every face in every registry passed to
 `OverlayRenderer.Builder.withFontRegistry`. Atlas upload is recorded into the
 host's frame command buffer once at backend init.

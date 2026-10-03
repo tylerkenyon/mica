@@ -1,0 +1,344 @@
+{
+ "area": "Vanilla client right-click / use-item cadence on Minecraft 26.2 (Mojang official mappings) — Minecraft.tick/handleKeybinds/startUseItem, MultiPlayerGameMode.useItemOn, LocalPlayer/LivingEntity use-item state",
+ "signatures": [
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "private int rightClickDelay;",
+   "notes": "STILL EXISTS in 26.2 under the same name. private -> needs an accessor/shadow mixin. Armed to 4 in startUseItem(); decremented at the top of tick(). Bytecode confirms only 3 access sites in the whole class (putfield iconst_4 in startUseItem, getfield/isub/putfield in tick, getfield/ifne in handleKeybinds) - nothing else ever zeroes it.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "private void startUseItem();",
+   "notes": "private. First statement inside 'if (!this.gameMode.isDestroying())' is 'this.rightClickDelay = 4;' - armed on EVERY attempt, success or failure. Not armed at all while destroying a block.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "private void handleKeybinds();",
+   "notes": "private. Contains both use paths: the click path (while keyUse.consumeClick()) and the hold path 'if (keyUse.isDown() && rightClickDelay == 0 && !player.isUsingItem()) startUseItem();'. Has NO player != null guard - it relies on a screen always being open when player is null.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "protected int missTime;",
+   "notes": "Gates ATTACK only (startAttack / continueAttack). startUseItem contains no missTime check. Set to 10000 whenever gui.screen() != null; decremented only in the no-screen branch; reset to 0 by continueAttack(false).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "private void continueAttack(boolean);",
+   "notes": "private. Called as continueAttack(gui.screen()==null && !instantAttack && options.keyAttack.isDown() && mouseHandler.isMouseGrabbed()). The mouse-grab check exists ONLY on the attack path, not the use path.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "private void pick(float);",
+   "notes": "private. Called once per client tick as pick(1.0F), BEFORE handleKeybinds. Refreshes the public hitResult field. Not callable from mod code without a mixin.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "public net.minecraft.world.phys.HitResult hitResult;",
+   "notes": "public; refreshed once per tick by pick(1.0F) before handleKeybinds. Stale relative to any rotation you apply later in the tick.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "public net.minecraft.client.multiplayer.MultiPlayerGameMode gameMode;",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "public net.minecraft.client.player.LocalPlayer player;",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "public net.minecraft.client.multiplayer.ClientLevel level;",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "public final net.minecraft.client.gui.Gui gui;",
+   "notes": "26.2 indirection: screen/overlay live behind this, not on Minecraft.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "public final net.minecraft.client.Options options;",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "public void tick();",
+   "notes": "The client tick. Order verified by decompile - see ORDER gotcha.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.gui.Gui",
+   "member": "public net.minecraft.client.gui.screens.Screen screen();",
+   "notes": "26.2 replacement for the old public Minecraft.screen field.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.gui.Gui",
+   "member": "public net.minecraft.client.gui.screens.Overlay overlay();",
+   "notes": "26.2 replacement for the old public Minecraft.overlay field.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "public net.minecraft.world.InteractionResult useItemOn(net.minecraft.client.player.LocalPlayer, net.minecraft.world.InteractionHand, net.minecraft.world.phys.BlockHitResult);",
+   "notes": "public - the real entry point for an automated block use. First statement is ensureHasSentCarriedItem(). Then the ONLY early-out is the world-border check (returns InteractionResult.FAIL). Otherwise startPrediction() ALWAYS sends ServerboundUseItemOnPacket regardless of the returned result.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "public net.minecraft.world.InteractionResult useItem(net.minecraft.world.entity.player.Player, net.minecraft.world.InteractionHand);",
+   "notes": "Air/self use. Returns PASS immediately in spectator; otherwise ensureHasSentCarriedItem() then always sends ServerboundUseItemPacket(hand, sequence, player.getYRot(), player.getXRot()) - this one DOES carry rotation.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "public boolean isDestroying();",
+   "notes": "Vanilla's hard gate: startUseItem does nothing at all (and does not arm the delay) while this is true.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "public boolean isSpectator();",
+   "notes": "returns localPlayerMode == GameType.SPECTATOR",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "public boolean hasMissTime();",
+   "notes": "returns !localPlayerMode.isCreative(). Attack path only.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "public void releaseUsingItem(net.minecraft.world.entity.player.Player);",
+   "notes": "What handleKeybinds calls when player.isUsingItem() && !keyUse.isDown(). Calls ensureHasSentCarriedItem(), sends the release packet, then player.releaseUsingItem().",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "private void ensureHasSentCarriedItem();",
+   "notes": "private. Body: 'int index = minecraft.player.getInventory().getSelectedSlot(); if (index != this.carriedIndex) { this.carriedIndex = index; connection.send(new ServerboundSetCarriedItemPacket(this.carriedIndex)); }'. Called from tick(), useItemOn(), useItem(), releaseUsingItem(), attack/interact.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "private void startPrediction(net.minecraft.client.multiplayer.ClientLevel, net.minecraft.client.multiplayer.prediction.PredictiveAction);",
+   "notes": "private. Unconditionally does connection.send(predictiveAction.predict(sequence)) inside the prediction scope - i.e. the use packet leaves even when the InteractionResult is PASS or FAIL.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.player.LocalPlayer",
+   "member": "public boolean isUsingItem();",
+   "notes": "OVERRIDE: returns the client-local 'private boolean startedUsingItem' flag, NOT the DATA_LIVING_ENTITY_FLAGS bit that LivingEntity.isUsingItem() reads.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.player.LocalPlayer",
+   "member": "public boolean isHandsBusy();",
+   "notes": "CLIENT-ONLY: declared on LocalPlayer only - javap on Player, LivingEntity and Entity finds no isHandsBusy. Set false in rideTick()/removeVehicle(), set true while steering an AbstractBoat with any of left/right/forward/backward pressed.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.player.LocalPlayer",
+   "member": "public void stopUsingItem();",
+   "notes": "super.stopUsingItem() then 'this.startedUsingItem = false;'",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.player.LocalPlayer",
+   "member": "public net.minecraft.world.InteractionHand getUsedItemHand();",
+   "notes": "OVERRIDE: Objects.requireNonNullElse(this.usingItemHand, InteractionHand.MAIN_HAND) - client-local, not entity-data derived.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.player.LocalPlayer",
+   "member": "public void swing(net.minecraft.world.InteractionHand);",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.player.LocalPlayer",
+   "member": "public void tick();",
+   "notes": "Entire body wrapped in 'if (this.connection.hasClientLoaded())'. Order inside: dropSpamThrottler.tick(); super.tick(); ServerboundPlayerInputPacket if input changed; then sendPosition() (or vehicle packets). Runs during level.tickEntities(), i.e. AFTER handleKeybinds.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.player.LocalPlayer",
+   "member": "public void applyInput();",
+   "notes": "Called from LivingEntity.aiStep() (LivingEntity.java:3094, profiler section \"ai\"), which runs inside LocalPlayer.tick -> super.tick(). So it is strictly after startUseItem for the same tick.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.player.LocalPlayer",
+   "member": "public final net.minecraft.client.multiplayer.ClientPacketListener connection;",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "private void updatingUsingItem();",
+   "notes": "private, called as the FIRST statement of LivingEntity.tick() (after super.tick()). Body: if isUsingItem() then if ItemStack.isSameItem(getItemInHand(getUsedItemHand()), useItem) -> updateUsingItem(useItem) else -> stopUsingItem(). This is the client-side 'slot changed mid-use' cancel.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public boolean isUsingItem();",
+   "notes": "Base impl reads ((Byte)entityData.get(DATA_LIVING_ENTITY_FLAGS) & 1) > 0 - server-echoed. LocalPlayer overrides it.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public net.minecraft.world.item.ItemStack getItemInHand(net.minecraft.world.InteractionHand);",
+   "notes": "Declared on LivingEntity, not Entity. MAIN_HAND resolves through the selected hotbar slot.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public int getUseItemRemainingTicks();",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public boolean isSecondaryUseActive();",
+   "notes": "Body is 'return this.isShiftKeyDown();'. Used by performUseItemOn to suppress the block interaction.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public net.minecraft.world.item.ItemCooldowns getCooldowns();",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public net.minecraft.world.entity.player.Inventory getInventory();",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public boolean hasInfiniteMaterials();",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public boolean isWithinEntityInteractionRange(net.minecraft.world.entity.Entity, double);",
+   "notes": "Used by startUseItem's ENTITY branch as isWithinEntityInteractionRange(entity, 0.0). There is no equivalent range check on the BLOCK branch - block reach is enforced by pick().",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.ItemCooldowns",
+   "member": "public boolean isOnCooldown(net.minecraft.world.item.ItemStack);",
+   "notes": "Ticked by Player.tick() via 'this.cooldowns.tick();' - i.e. during level.tickEntities(), AFTER handleKeybinds in the same tick.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public int getSelectedSlot();",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public void setSelectedSlot(int);",
+   "notes": "Full body: 'if (!isHotbarSlot(selected)) throw new IllegalArgumentException(\"Invalid selected slot\"); else this.selected = selected;'. It does NOT stop item use, does NOT send a packet, does NOT touch rightClickDelay. The old public 'selected' field is now 'private int selected'.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.ItemStack",
+   "member": "public boolean isItemEnabled(net.minecraft.world.flag.FeatureFlagSet);",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.ClientLevel",
+   "member": "public net.minecraft.world.flag.FeatureFlagSet enabledFeatures();",
+   "notes": "Declared on LevelReader; not on Level itself.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.ClientLevel",
+   "member": "public net.minecraft.world.level.border.WorldBorder getWorldBorder();",
+   "notes": "Declared on CollisionGetter; not on Level.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.ClientLevel",
+   "member": "public void tickEntities();",
+   "notes": "tickingEntities.forEach -> guardEntityTick(this::tickNonPassenger, entity) -> tickNonPassenger -> entity.tick(). This is where LocalPlayer.tick runs.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.border.WorldBorder",
+   "member": "public boolean isWithinBounds(net.minecraft.core.BlockPos);",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.ClientPacketListener",
+   "member": "public boolean hasClientLoaded();",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.ClientPacketListener",
+   "member": "public boolean isFeatureEnabled(net.minecraft.world.flag.FeatureFlagSet);",
+   "notes": "performUseItemOn uses this on blockState.getBlock().requiredFeatures() and returns FAIL if disabled.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.InteractionResult",
+   "member": "public interface net.minecraft.world.InteractionResult { public static final InteractionResult$Success SUCCESS, SUCCESS_SERVER, CONSUME; public static final InteractionResult$Fail FAIL; public static final InteractionResult$Pass PASS; public static final InteractionResult$TryEmptyHandInteraction TRY_WITH_EMPTY_HAND; public default boolean consumesAction(); }",
+   "notes": "Interface with record subtypes, not an enum. Pattern-match with 'instanceof InteractionResult.Success success'.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.InteractionResult$Success",
+   "member": "public net.minecraft.world.InteractionResult$SwingSource swingSource();",
+   "notes": "SwingSource enum constants are NONE, CLIENT, SERVER. Vanilla only swings client-side when swingSource() == CLIENT.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.Options",
+   "member": "public final net.minecraft.client.KeyMapping keyUse;",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.KeyMapping",
+   "member": "public boolean isDown();",
+   "notes": "Plain field read of 'private boolean isDown'. consumeClick() decrements 'private int clickCount' - the click queue and the hold state are independent.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.server.network.ServerGamePacketListenerImpl",
+   "member": "public void handleSetCarriedItem(final ServerboundSetCarriedItemPacket packet)",
+   "notes": "SERVER-ONLY (lives in minecraft-extracted_server.jar, not on the client classpath). Signature copied from the decompiled source, not javap. Body does: 'if (this.player.getInventory().getSelectedSlot() != packet.getSlot() && this.player.getUsedItemHand() == InteractionHand.MAIN_HAND) this.player.stopUsingItem();' then setSelectedSlot + resetLastActionTime. Client-visible equivalent: LivingEntity.updatingUsingItem() reaching the same conclusion one entity-tick later.",
+   "verified": true
+  }
+ ],
+ "gotchas": [
+  "Q1 - THE FIELD STILL EXISTS, UNRENAMED: net.minecraft.client.Minecraft still declares 'private int rightClickDelay;'. It is set to exactly 4, as the first statement inside startUseItem()'s 'if (!this.gameMode.isDestroying())' block, and decremented in Minecraft.tick() by 'if (this.rightClickDelay > 0) { this.rightClickDelay--; }' placed after clientTickCount++/tickRateManager and BEFORE gameMode.tick(), pick() and handleKeybinds(). Bytecode (javap -c) confirms exactly three access sites in the class: putfield after iconst_4 at startUseItem offset 12-13, getfield/isub/putfield at tick offsets 35-48, and getfield/ifne at handleKeybinds offset 670-673. Nothing else in the game reads or writes it (it is private), so it is never force-zeroed on screen close, slot change, teleport, or respawn.",
+  "Q1 NUANCE - it is armed on ATTEMPT, not on SUCCESS: 'this.rightClickDelay = 4;' runs before any hit-result/hand/item logic, so a completely failed use (empty hand, PASS, FAIL, world-border reject) still costs the full 4 ticks. Conversely it is not armed AT ALL while gameMode.isDestroying() is true - startUseItem returns immediately, so vanilla re-attempts startUseItem every single tick while you mine with right-click held.",
+  "Q2 - CADENCE IS EXACTLY 4 TICKS (5 useItemOn calls/second at 20 TPS). The three lines that establish it: (a) startUseItem: 'if (!this.gameMode.isDestroying()) { this.rightClickDelay = 4;' (b) tick(): 'if (this.rightClickDelay > 0) { this.rightClickDelay--; }' (c) handleKeybinds(): 'if (this.options.keyUse.isDown() && this.rightClickDelay == 0 && !this.player.isUsingItem()) { this.startUseItem(); }'. Because the decrement is earlier in the same tick body than the '== 0' test, arming on tick N gives 3 on N+1, 2 on N+2, 1 on N+3, 0 on N+4 -> the next call fires on tick N+4. Period = 4 ticks, not 5.",
+  "Q2 NUANCE - the first press does NOT come from the hold path: handleKeybinds first drains 'while (this.options.keyUse.consumeClick()) { this.startUseItem(); }' inside the '!player.isUsingItem()' branch, and that path ignores rightClickDelay entirely. So a rapid physical click sequence can exceed 5/sec (one startUseItem per queued click in a single tick), while HOLDING is hard-capped at one per 4 ticks. A macro that fakes clicks via the click queue would be superhuman; a macro that mimics holding must use the 4-tick number.",
+  "Q3 - REAL ORDER INSIDE Minecraft.tick(), verified by decompile: (1) clientTickCount++ (2) level.tickRateManager().tick() (3) rightClickDelay-- (4) profiler \"gameMode\": gameMode.tick() -> ensureHasSentCarriedItem() -> ServerboundSetCarriedItemPacket if the slot changed  <-- SELECTED-SLOT SYNC (5) pick(1.0F) -> refreshes mc.hitResult (6) tutorial.onLookAt (7) profiler \"gui\": textInputManager.tick(), gui.tick() (8) if (gui.screen() != null) missTime = 10000 (9) if (gui.overlay() == null && gui.screen() == null) -> handleKeybinds()  <-- startUseItem / useItemOn HAPPENS HERE  then if (missTime > 0) missTime-- (10) gameRenderer.tick(); level.tickEntities()  <-- LocalPlayer.tick runs here; level.tickBlockEntities() (11) musicManager/soundManager (12) level.tick(() -> true) (13) animateTick, particleEngine.tick() (14) connection.send(ServerboundClientTickEndPacket.INSTANCE) (15) keyboardHandler.tick().",
+  "Q3(a) - handleKeybinds/startUseItem runs BEFORE LocalPlayer.tick and BEFORE applyInput for the same tick. LocalPlayer.tick is reached only via ClientLevel.tickEntities -> tickNonPassenger -> entity.tick(); inside it, super.tick() -> Player.tick() -> LivingEntity.tick() -> updatingUsingItem(), then aiStep() -> input.tick() and LivingEntity.aiStep()'s 'this.applyInput()' (LivingEntity.java:3094). Only after that does LocalPlayer.tick send ServerboundPlayerInputPacket and sendPosition() (Pos/Rot/PosRot/StatusOnly). Consequence for a macro: the ServerboundUseItemOnPacket for tick N is on the wire BEFORE that tick's movement/rotation packet, and before that tick's ItemCooldowns.tick() ('this.cooldowns.tick();' in Player.tick) and before updatingUsingItem() re-validates the held stack.",
+  "Q3(b) - handleKeybinds is strictly BEFORE level.tickEntities(). Q3(c) - the selected-slot sync happens TWICE relative to the use: once in gameMode.tick() (step 4, before handleKeybinds) and again as the very first statement of useItemOn()/useItem() itself. So as long as you go through MultiPlayerGameMode, ServerboundSetCarriedItemPacket is guaranteed to precede the use packet. If you hand-roll ServerboundUseItemOnPacket you lose that ordering and the server will resolve the use against the old slot.",
+  "Q3 EXTRA - mouse look is applied AFTER the ticks: Minecraft.run() does RenderSystem.pollEvents() then runTick(); runTick does processQueuedPackets(), runAllTasks(), then up to 'Math.min(10, ticksToDo)' calls to this.tick(), and only afterwards 'profiler.popPush(\"mouse\"); this.mouseHandler.handleAccumulatedMovement();' before renderFrame. So rotation from real mouse movement lands between ticks; a macro that wants its rotation to be the one useItemOn sees must set it before tick() (or accept that mc.hitResult was computed at step 5 from the pre-existing rotation).",
+  "Q4 - VERIFIED REFUSAL CONDITIONS, in evaluation order. (i) handleKeybinds is not called at all unless 'this.gui.overlay() == null && this.gui.screen() == null' - any open screen or overlay suppresses the whole use path. (ii) if (this.player.isUsingItem()) handleKeybinds takes the swallow branch: 'if (!this.options.keyUse.isDown()) this.gameMode.releaseUsingItem(this.player);' then drains keyAttack/keyUse/keyPickItem clicks with empty while-loops - no startUseItem from the click path. (iii) hold path requires keyUse.isDown() && rightClickDelay == 0 && !player.isUsingItem(). (iv) startUseItem requires !this.gameMode.isDestroying(). (v) then !this.player.isHandsBusy() (true while steering a boat with a movement key held). (vi) per hand: 'if (!heldItem.isItemEnabled(this.level.enabledFeatures())) return;' - note this returns out of the whole loop, so a feature-disabled main-hand item also cancels the off-hand attempt. (vii) BLOCK branch enters gameMode.useItemOn; inside it '!this.minecraft.level.getWorldBorder().isWithinBounds(blockHit.getBlockPos())' -> InteractionResult.FAIL and no packet. (viii) performUseItemOn: 'if (this.localPlayerMode == GameType.SPECTATOR) return InteractionResult.CONSUME;' (ix) 'boolean suppressUsingBlock = player.isSecondaryUseActive() && haveSomethingInOurHands;' where haveSomethingInOurHands = !getMainHandItem().isEmpty() || !getOffhandItem().isEmpty() - sneaking with any item skips blockState.useItemOn/useWithoutItem entirely and falls through to the item's own useOn. (x) '!this.connection.isFeatureEnabled(blockState.getBlock().requiredFeatures())' -> FAIL. (xi) 'if (!itemStack.isEmpty() && !player.getCooldowns().isOnCooldown(itemStack))' else PASS - item cooldown blocks the ItemStack.useOn leg only, the block-interaction leg above already ran.",
+  "Q4 - WHAT DOES *NOT* GATE USE (three false friends from older versions/mods): missTime is attack-only in 26.2 - startUseItem has no missTime check (grep of Minecraft.java shows missTime only in continueAttack, startAttack and tick's screen/decrement lines). mouseHandler.isMouseGrabbed() appears exactly once in Minecraft.java, in the continueAttack(...) argument - the use path never checks it. Minecraft.isWindowActive() is never referenced in the tick/keybind path at all. Also note handleKeybinds is NOT gated by !this.pause.",
+  "Q4 - ATTACK-SIDE TRAP worth knowing if the same macro also attacks: 'if (this.gui.screen() != null) this.missTime = 10000;' and missTime is only decremented inside the no-screen branch, so the only thing that clears it is 'if (!down) this.missTime = 0;' at the top of continueAttack. Closing a GUI while still holding the attack key leaves missTime at ~10000 and attacks stay dead until the key is released.",
+  "Q5 - NOTHING slot-specific resets the use on the client. Inventory.setSelectedSlot(int) only validates isHotbarSlot and assigns; both vanilla slot-change entry points (handleKeybinds' 'this.player.getInventory().setSelectedSlot(i)' for keyHotbarSlots, and MouseHandler.onScroll's 'inventory.setSelectedSlot(ScrollWheelHandler.getNextScrollWheelSelection(wheel, inventory.getSelectedSlot(), Inventory.getSelectionSize()))') do nothing else. The cancel is generic and one tick late: LivingEntity.tick() calls private updatingUsingItem(), which does 'if (ItemStack.isSameItem(this.getItemInHand(this.getUsedItemHand()), this.useItem)) {...} else { this.stopUsingItem(); }' - because MAIN_HAND resolves through the selected slot, switching slots mid-use makes isSameItem false on the next entity tick and stopUsingItem() fires (LocalPlayer's override also clears startedUsingItem). Switching to a slot holding the SAME item does not cancel. rightClickDelay is untouched by any of this.",
+  "Q5 - the authoritative slot-change cancel is SERVER-ONLY: ServerGamePacketListenerImpl.handleSetCarriedItem does 'if (this.player.getInventory().getSelectedSlot() != packet.getSlot() && this.player.getUsedItemHand() == InteractionHand.MAIN_HAND) this.player.stopUsingItem();'. That class is only in minecraft-extracted_server.jar and is uncallable from client code; the client-visible equivalent is LivingEntity.updatingUsingItem() described above. Practical effect: a macro that switches slots while a bow/shield/food is being used will have the use cancelled on both sides without any explicit call.",
+  "BREAKING vs pre-26.2 #1: Minecraft.screen and Minecraft.overlay are gone. The screen-open guard is now 'mc.gui.screen() != null' / 'mc.gui.overlay() != null' on net.minecraft.client.gui.Gui (public final field Minecraft.gui). Keybind handling also moved partly to Gui.handleKeybinds().",
+  "BREAKING vs pre-26.2 #2: Inventory.selected is now private; use getSelectedSlot()/setSelectedSlot(int), and note setSelectedSlot THROWS IllegalArgumentException for a non-hotbar index instead of clamping. Hotbar width comes from Inventory.getSelectionSize().",
+  "BREAKING vs pre-26.2 #3: useItemOn returns net.minecraft.world.InteractionResult, which is an INTERFACE with record subtypes (Success/Fail/Pass/TryEmptyHandInteraction), not an enum and not InteractionResultHolder. Old 'result == InteractionResult.SUCCESS' comparisons silently stop matching; vanilla now does 'instanceof Success success' and swings only when 'success.swingSource() == SwingSource.CLIENT'. consumesAction() is a default interface method.",
+  "BREAKING vs pre-26.2 #4: useItemOn's return value tells you nothing about whether a packet was sent. startPrediction() sends the ServerboundUseItemOnPacket unconditionally; only the world-border check can prevent it. Anti-cheat-relevant: calling useItemOn in a loop emits one packet per call even when every result is FAIL. Vanilla's only rate limit is rightClickDelay.",
+  "BREAKING vs pre-26.2 #5: LocalPlayer.isUsingItem() is overridden to return the client-local startedUsingItem flag, while LivingEntity.isUsingItem() reads the DATA_LIVING_ENTITY_FLAGS bit. If you hold a LivingEntity/Player reference and call isUsingItem() you may get the server-echoed value; vanilla's guard in handleKeybinds is the LocalPlayer one. Likewise LocalPlayer.getUsedItemHand() returns the client-local usingItemHand, not the entity-data bit.",
+  "BREAKING vs pre-26.2 #6: isHandsBusy() exists ONLY on LocalPlayer - javap on Player, LivingEntity and Entity finds nothing. Common-side code cannot replicate that guard.",
+  "ACCESS: everything vanilla actually uses to throttle is private - rightClickDelay, startUseItem(), handleKeybinds(), continueAttack(boolean), pick(float). missTime is protected. There is no public API to read or reset vanilla's cadence, so either add an accessor/shadow mixin on Minecraft or keep your own counter (the snippet in 'usage' does the latter).",
+  "CAVEAT ON WHAT I DID NOT VERIFY: I did not run the game, so the 4-tick figure is derived from the three quoted code sites plus the bytecode access list, not from an in-game measurement. I also did not decompile ClientInput/KeyMapping's press bookkeeping beyond isDown()/consumeClick(), so I cannot say how many clickCount entries can accumulate in one tick at high frame rates."
+ ],
+ "usage": "// Guard set a well-behaved automated block-use should replicate before calling useItemOn,\n// in vanilla's own evaluation order. Every symbol below was verified via javap/decompile on 26.2.\n// Mirrors Minecraft.tick -> handleKeybinds -> startUseItem -> MultiPlayerGameMode.useItemOn.\n\nimport net.minecraft.client.Minecraft;\nimport net.minecraft.client.multiplayer.ClientLevel;\nimport net.minecraft.client.multiplayer.MultiPlayerGameMode;\nimport net.minecraft.client.player.LocalPlayer;\nimport net.minecraft.world.InteractionHand;\nimport net.minecraft.world.InteractionResult;\nimport net.minecraft.world.item.ItemStack;\nimport net.minecraft.world.phys.BlockHitResult;\nimport net.minecraft.world.phys.HitResult;\n\npublic final class VanillaCadenceBlockUse {\n    // Replicates Minecraft.rightClickDelay (that field is private).\n    private int useDelay;\n\n    /** Call once per client tick, at the same phase vanilla runs handleKeybinds:\n     *  after gameMode.tick() and pick(1.0F), before level.tickEntities(). */\n    public void onClientTick(Minecraft mc) {\n        if (this.useDelay > 0) {\n            this.useDelay--;          // Minecraft.tick(): 'if (rightClickDelay > 0) rightClickDelay--;'\n        }\n\n        LocalPlayer player = mc.player;\n        MultiPlayerGameMode gameMode = mc.gameMode;\n        ClientLevel level = mc.level;\n        if (player == null || gameMode == null || level == null) {\n            return;\n        }\n        // (i) handleKeybinds is not called at all while a screen or overlay is up.\n        if (mc.gui.screen() != null || mc.gui.overlay() != null) {\n            return;\n        }\n        // LocalPlayer.tick() wraps everything in this; nothing is synced before it.\n        if (!player.connection.hasClientLoaded()) {\n            return;\n        }\n        // (iv) startUseItem returns immediately while mining, and does NOT arm the delay.\n        if (gameMode.isDestroying()) {\n            return;\n        }\n        // (v) steering a boat.\n        if (player.isHandsBusy()) {\n            return;\n        }\n        // (ii)/(iii) hold path: vanilla never re-uses while an item is being used.\n        if (player.isUsingItem()) {\n            return;\n        }\n        // (iii) the 4-tick throttle.\n        if (this.useDelay != 0) {\n            return;\n        }\n        // BLOCK branch only. hitResult was refreshed by pick(1.0F) earlier this tick.\n        if (mc.hitResult == null\n                || mc.hitResult.getType() != HitResult.Type.BLOCK\n                || !(mc.hitResult instanceof BlockHitResult blockHit)) {\n            return;\n        }\n        // (vii) useItemOn's own early-out; checking it here avoids a wasted delay arm.\n        if (!level.getWorldBorder().isWithinBounds(blockHit.getBlockPos())) {\n            return;\n        }\n\n        InteractionHand hand = InteractionHand.MAIN_HAND;\n        ItemStack held = player.getItemInHand(hand);\n        // (vi) feature-flag gate.\n        if (!held.isItemEnabled(level.enabledFeatures())) {\n            return;\n        }\n        // (viii) spectator: performUseItemOn short-circuits to CONSUME, so the packet is pure noise.\n        if (gameMode.isSpectator()) {\n            return;\n        }\n        // (ix) sneak + non-empty hands suppresses the block interaction in vanilla.\n        if (player.isSecondaryUseActive() && !held.isEmpty()) {\n            return;\n        }\n        // (xi) cooldown blocks the item's own useOn leg.\n        if (player.getCooldowns().isOnCooldown(held)) {\n            return;\n        }\n\n        // Arm BEFORE the call, exactly like startUseItem: the cost is paid on attempt, not success.\n        this.useDelay = 4;\n\n        InteractionResult result = gameMode.useItemOn(player, hand, blockHit);\n        if (result instanceof InteractionResult.Success success\n                && success.swingSource() == InteractionResult.SwingSource.CLIENT) {\n            player.swing(hand);\n        }\n    }\n\n    /** Vanilla releases the in-progress use when the key goes up; mirror it when your macro stops. */\n    public void onStop(Minecraft mc) {\n        if (mc.player != null && mc.gameMode != null && mc.player.isUsingItem()) {\n            mc.gameMode.releaseUsingItem(mc.player);   // sends the release packet, then player.releaseUsingItem()\n        }\n    }\n}"
+}

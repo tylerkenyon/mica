@@ -1,5 +1,10 @@
 plugins {
     id 'net.fabricmc.fabric-loom' version '1.17-SNAPSHOT'
+    // java-library, not just java: RenderContext exposes imgui.ImDrawList, so imgui-java is part of
+    // Mica's public API and has to be an `api` dependency for a consumer to compile against the
+    // published artefact. Without this every consumer would have to declare imgui itself and keep the
+    // version in lockstep with Mica's.
+    id 'java-library'
     id 'maven-publish'
 }
 
@@ -11,12 +16,11 @@ base {
 }
 
 loom {
-    splitEnvironmentSourceSets()
-
     runs {
         client {
+            programArg "--offlineDeveloperMode"
             // mica ships only a Vulkan renderer (see
-            // src/client/.../internal/backend/vulkan/*). Minecraft 26.2's safety net resets
+            // src/main/.../internal/backend/vulkan/*). Minecraft 26.2's safety net resets
             // preferredGraphicsBackend to "default" after any crash that takes down a previous
             // run, which on most GPUs silently flips the next run to OpenGL. Once that flip
             // happens the mod still loads (it never throws) but never shows anything, which is
@@ -49,11 +53,38 @@ loom {
             if (project.hasProperty("imguiDebugSkipDraw")) {
                 vmArg "-Dimgui.debug.skipDraw=true"
             }
+            // -PimguiDebugAlloc turns on LWJGL's allocation tracker. It fails fast, with the original
+            // allocation stack, on a memFree of a pointer LWJGL did not allocate or has already freed,
+            // and reports what is still allocated at exit. That is the class of bug behind a Windows
+            // STATUS_HEAP_CORRUPTION (0xC0000374) exit, which is a CRT fast-fail and therefore leaves
+            // no hs_err file to read - so without this there is nothing to go on but the exit code.
+            if (project.hasProperty("imguiDebugAlloc")) {
+                vmArg "-Dorg.lwjgl.util.Debug=true"
+                vmArg "-Dorg.lwjgl.util.DebugAllocator=true"
+                vmArg "-Dorg.lwjgl.util.DebugAllocator.internal=true"
+            }
+            // -PimguiPerf enables the per-HUD-element render profiler (dev.technix.client.diag.HudProfiler).
+            if (project.hasProperty("imguiPerf")) {
+                vmArg "-Dmica.hudPerf=true"
+            }
             // -PimguiQuickPlay="New World" boots straight into that singleplayer level, so the
             // in-game HUD can be checked without clicking through the menus.
             if (project.hasProperty("imguiQuickPlay")) {
                 programArg "--quickPlaySingleplayer"
                 programArg project.property("imguiQuickPlay").toString()
+            }
+            // -PeventDiag boots the temporary event-validation harness
+            // (dev.technix.client.event.diag.EventDiagnostics): scripted probe +
+            // per-event fire counts on the "mica-diag" logger.
+            if (project.hasProperty("eventDiag")) {
+                vmArg "-Dmica.eventDiag=true"
+            }
+            // -ProtationDiag boots the rotation validation harness
+            // (dev.technix.client.diag.RotationDiagnostics): a scripted silent-rotation probe that
+            // asserts the entity reaches the requested rotation while the camera stays put.
+            // Needs the window focused; MouseHandler skips turnPlayer otherwise.
+            if (project.hasProperty("rotationDiag")) {
+                vmArg "-Dmica.rotationDiag=true"
             }
         }
     }
@@ -61,14 +92,7 @@ loom {
     mods {
         "mica" {
             sourceSet sourceSets.main
-            sourceSet sourceSets.client
         }
-    }
-}
-
-fabricApi {
-    configureDataGeneration {
-        client = true
     }
 }
 
@@ -84,12 +108,13 @@ dependencies {
 
     implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
+
     // ---- Dear ImGui (imgui-java binding) ----
     // imgui-java publishes: imgui-java-binding (core bindings) and per-OS imgui-java-natives-*
     // (the JNI native library). The GLFW/OpenGL3 backend module (imgui-java-lwjgl3) is NOT used:
     // this mod is strictly Vulkan and ships its own renderer in
     // src/client/.../backend/vulkan (VulkanImGuiBackend).
-    implementation "io.github.spair:imgui-java-binding:${project.imgui_version}"
+    api "io.github.spair:imgui-java-binding:${project.imgui_version}"
     implementation "io.github.spair:imgui-java-natives-windows:${project.imgui_version}"
     implementation "io.github.spair:imgui-java-natives-linux:${project.imgui_version}"
     implementation "io.github.spair:imgui-java-natives-macos:${project.imgui_version}"
@@ -159,7 +184,6 @@ tasks.register("libraryJar", Jar) {
     dependsOn "build"
 
     from(zipTree(file("$buildDir/libs/${project.archives_base_name}-${project.version}.jar"))) {
-        exclude "dev/technix/client/**"
         exclude "fabric.mod.json"
     }
 }

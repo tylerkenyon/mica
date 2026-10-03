@@ -18,3 +18,10 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
+
+// The Gradle coordinate this build publishes and, more immediately, the name a composite build
+// substitutes on. Without it the coordinate defaults to the directory name (ImGUI-mc-impl), and a
+// consumer's `implementation "dev.technix:mica"` silently falls through to a repository lookup
+// instead of being satisfied by the included build. archivesName already produced mica-<version>.jar;
+// this makes the coordinate agree with it.
+rootProject.name = 'mica'

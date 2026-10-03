@@ -28,7 +28,7 @@ Verifiable by `unzip -l dist/mica-<version>.jar`:
 | `dev/technix/mica/internal/backend/vulkan/`        | ~6      | `FrostedGlassRenderer`, `VulkanContext`, `VulkanImGuiBackend`, `VulkanShaderCompiler`. |
 | `dev/technix/mica/examples/`                       | ~2      | `ToastElement`.                        |
 | `dev/technix/mica/mixin/client/`                   | ~6      | Mixin accessors required by the 26.2 adapter. |
-| `assets/mica/`                                     | fonts  | SF Pro Display is bundled (read the licence note in the README before commercial use). |
+| *(no assets)*                                      | 0       | Mica bundles no fonts and no textures. Default faces come from the OS UI font at runtime, so the jar carries no font licence. |
 | `META-INF/jars/`                                   | jar-in-jar | imgui-java 1.92 + LWJGL Vulkan bits, packaged so the consumer has no extra dependencies. |
 
 `fabric.mod.json` is **not** in the jar. A host's Fabric Loader treats the artefact as
