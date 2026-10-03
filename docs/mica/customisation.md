@@ -1,13 +1,34 @@
 # Custom fonts & frosted glass
 
-Mica ships with the SF Pro Display faces bundled (`regular`, `medium`, `bold`,
-`logo`) and a half-resolution Kawase blur pass at five passes per frame. Both are
-configurable end-to-end: fonts come from a directory you choose in your own mod jar,
-and the frosted glass is a value object you build and slot into the renderer.
+Mica bundles no font. Its four default faces (`regular`, `medium`, `bold`, `logo`) are
+rasterised from **the operating system's own UI font**, so the overlay looks native on
+each platform and the jar carries no font licence with it. That plus a half-resolution
+Kawase blur at five passes per frame is what you get out of the box; both are
+configurable end-to-end.
 
 The two knobs are independent. Pick neither, and you get Mica's defaults. Pick fonts,
-and your registry's faces coexist with Mica's bundled ones. Pick a glass style, and
-every panel drawn with the parameterless `Draw.frostedPanel` re-skins in lockstep.
+and your registry's faces coexist with the platform ones. Pick a glass style, and every
+panel drawn with the parameterless `Draw.frostedPanel` re-skins in lockstep.
+
+### The default faces, and replacing them
+
+| Platform | Regular | Medium | Bold |
+| --- | --- | --- | --- |
+| Windows | `%WINDIR%\Fonts\segoeui.ttf` | `segoeuisb.ttf` (semibold - Windows ships no medium Segoe) | `segoeuib.ttf` |
+| macOS | `/System/Library/Fonts/SFNS.ttf` | same | `Supplemental/Arial Bold.ttf`, else SFNS |
+| Linux | `fc-match sans-serif`, else DejaVu / Noto / Liberation | `:weight=medium` | `:bold` |
+
+To override a default face, drop a file in `<gamedir>/mica/fonts` under the exact name
+for that weight - `system-ui.ttf`, `system-ui-medium.ttf`, `system-ui-bold.ttf`. One
+fixed name per weight rather than a search across extensions, so there is one answer to
+"where does my font go".
+
+Two limits worth knowing before you trust a weight. ImGui rasterises with stb_truetype,
+which applies no variable-font weight axis, so macOS's `SFNS.ttf` renders at regular
+weight whatever is asked of it. And a `.ttc` collection needs a face index that
+`addFontFromMemoryTTF` does not accept, so collections are only ever a last resort in the
+candidate lists. Where a platform has no distinct bold or medium file, that weight
+resolves to regular rather than failing - you still get text.
 
 ## Custom fonts
 
@@ -40,14 +61,18 @@ assets/mymod/fonts/roboto-mono.otf
 
 ### Resolution order
 
-At load time the platform consults first Minecraft's resource manager, then falls
-back to the platform's classloader. The resource manager is what reads jars on the
-classpath via Fabric Loader; the classloader fallback covers Mica's bundled SF Pro
-faces when the resource manager is not yet ready (very early bootstrap).
+A registry face resolves through Minecraft's resource manager first, then the
+classloader, then `<gamedir>/mica/fonts`. The resource manager is what reads jars on the
+classpath via Fabric Loader; the classloader covers the very early bootstrap before it is
+ready; the directory is where a user's own files live.
+
+Mica's four **default** faces do not use that chain - they are not resource-located at
+all. They resolve override-then-platform: the fixed `system-ui*.ttf` name in
+`<gamedir>/mica/fonts` if present, otherwise the OS font above.
 
 ### Looking up a face anywhere
 
-Once the renderer is built, every face — bundled or user-registered — is reachable
+Once the renderer is built, every face — default or user-registered — is reachable
 by name through `renderer.font(name)`. The `FontFace` it returns has the rasterised
 `ImFont` handle and the pixel size, both ready for `Draw.text(...)`.
 
@@ -64,9 +89,9 @@ draw helpers (`Draw` already routes `null` through `ImGuiFonts.push`'s fallback)
 
 Registries added via `withFontRegistry(...)` and `withFontRegistries(...)` are
 merged in insertion order. Within a registry, faces are registered in `add()` order.
-Mica's bundled SF Pro faces are added last on the platform side, so the bundled ones
-preserve their canonical names (`regular`, `medium`, `bold`, `logo`) even if your
-registry also exposes a `regular` face. Your face wins for that name.
+Mica's default platform faces are added last, so they keep their canonical names
+(`regular`, `medium`, `bold`, `logo`) even if your registry also exposes a `regular`
+face. Your face wins for that name.
 
 You can chain as many registries as you like:
 

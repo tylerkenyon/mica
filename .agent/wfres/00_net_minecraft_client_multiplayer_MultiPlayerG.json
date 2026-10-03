@@ -1,0 +1,357 @@
+{
+ "area": "net.minecraft.client.multiplayer.MultiPlayerGameMode on Minecraft 26.2 (Mojang mappings, client-only jar) — block/item use entry points, interaction sequence prediction, swing responsibility, range checks, container clicks, interaction gating, and hotbar sync",
+ "signatures": [
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "public net.minecraft.world.InteractionResult useItemOn(net.minecraft.client.player.LocalPlayer, net.minecraft.world.InteractionHand, net.minecraft.world.phys.BlockHitResult);",
+   "notes": "public. CONFIRMS the project's mixin target `useItemOn(LocalPlayer, InteractionHand, BlockHitResult)`. Descriptor: (Lnet/minecraft/client/player/LocalPlayer;Lnet/minecraft/world/InteractionHand;Lnet/minecraft/world/phys/BlockHitResult;)Lnet/minecraft/world/InteractionResult; — note the FIRST param is LocalPlayer (client type), unlike useItem.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "public net.minecraft.world.InteractionResult useItem(net.minecraft.world.entity.player.Player, net.minecraft.world.InteractionHand);",
+   "notes": "public. Takes Player, NOT LocalPlayer — asymmetric with useItemOn. Return type is the InteractionResult *interface*, not an enum and not InteractionResultHolder.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "private net.minecraft.world.InteractionResult performUseItemOn(net.minecraft.client.player.LocalPlayer, net.minecraft.world.InteractionHand, net.minecraft.world.phys.BlockHitResult);",
+   "notes": "private. This is the actual client-side simulation; useItemOn only wraps it in prediction. Injecting here runs INSIDE the prediction scope (sequence already allocated).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "private void startPrediction(net.minecraft.client.multiplayer.ClientLevel, net.minecraft.client.multiplayer.prediction.PredictiveAction);",
+   "notes": "private. Body: `BlockStatePredictionHandler prediction = level.getBlockStatePredictionHandler().startPredicting(); int sequence = prediction.currentSequence(); Packet<ServerGamePacketListener> p = predictiveAction.predict(sequence); this.connection.send(p);` in try/finally-close.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "private void ensureHasSentCarriedItem();",
+   "notes": "private. Body: `int index = this.minecraft.player.getInventory().getSelectedSlot(); if (index != this.carriedIndex) { this.carriedIndex = index; this.connection.send(new ServerboundSetCarriedItemPacket(this.carriedIndex)); }`",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "public void tick();",
+   "notes": "First statement is `this.ensureHasSentCarriedItem();`. Called from Minecraft.tick() inside the \"gameMode\" profiler section, i.e. BEFORE this.pick(1.0F) and BEFORE handleKeybinds() (which calls startUseItem -> useItemOn).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "public void handleContainerInput(int, int, int, net.minecraft.world.inventory.ContainerInput, net.minecraft.world.entity.player.Player);",
+   "notes": "public. This REPLACES the old handleInventoryMouseClick — that name does NOT exist on 26.2. Params in order: (containerId, slotNum, buttonNum, containerInput, player). Bails with a LOGGER.warn if containerId != player.containerMenu.containerId.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "public void handleInventoryButtonClick(int, int);",
+   "notes": "public (containerId, buttonId) — unrelated to slot clicks; sends ServerboundContainerButtonClickPacket.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "private int destroyDelay;",
+   "notes": "Set to 5 after each creative break and after a finished survival break. Decremented at the top of continueDestroyBlock, which returns true and does nothing while > 0. No public accessor.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "private boolean isDestroying;",
+   "notes": "Exposed read-only via `public boolean isDestroying()`. Minecraft.startUseItem() aborts entirely when this is true.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "private float destroyProgress;",
+   "notes": "private; feeds getDestroyStage().",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "private float destroyTicks;",
+   "notes": "private; drives the hit-sound cadence (destroyTicks % 4.0F == 0.0F).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "private int carriedIndex;",
+   "notes": "private. Last hotbar index actually sent to the server; the gate inside ensureHasSentCarriedItem().",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "private net.minecraft.core.BlockPos destroyBlockPos;",
+   "notes": "private.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "private net.minecraft.world.item.ItemStack destroyingItem;",
+   "notes": "private; compared in sameDestroyTarget via ItemStack.isSameItemSameComponents.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "public boolean isDestroying();",
+   "notes": "public accessor for the isDestroying field.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "public boolean continueDestroyBlock(net.minecraft.core.BlockPos, net.minecraft.core.Direction);",
+   "notes": "public. Calls ensureHasSentCarriedItem() then consumes destroyDelay.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "public net.minecraft.world.InteractionResult interact(net.minecraft.world.entity.player.Player, net.minecraft.world.entity.Entity, net.minecraft.world.phys.EntityHitResult, net.minecraft.world.InteractionHand);",
+   "notes": "public. Unlike useItemOn this does NOT use startPrediction — it sends ServerboundInteractPacket directly (no sequence number in the entity-interact path).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.prediction.PredictiveAction",
+   "member": "public abstract net.minecraft.network.protocol.Packet<net.minecraft.network.protocol.game.ServerGamePacketListener> predict(int);",
+   "notes": "Functional interface; the int is the interaction sequence number.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.prediction.BlockStatePredictionHandler",
+   "member": "public net.minecraft.client.multiplayer.prediction.BlockStatePredictionHandler startPredicting();",
+   "notes": "public; returns this, AutoCloseable.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.prediction.BlockStatePredictionHandler",
+   "member": "public int currentSequence();",
+   "notes": "public.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.prediction.BlockStatePredictionHandler",
+   "member": "public void endPredictionsUpTo(int, net.minecraft.client.multiplayer.ClientLevel);",
+   "notes": "public; driven by ClientPacketListener.handleBlockChangedAck — this is the ack side of the sequence.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.ClientLevel",
+   "member": "net.minecraft.client.multiplayer.prediction.BlockStatePredictionHandler getBlockStatePredictionHandler();",
+   "notes": "PACKAGE-PRIVATE (javap printed no access modifier). You cannot roll your own prediction from a mod package without an accessor mixin — this is a strong reason to call useItemOn rather than hand-building packets.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.ClientPacketListener",
+   "member": "public void handleBlockChangedAck(net.minecraft.network.protocol.game.ClientboundBlockChangedAckPacket);",
+   "notes": "public; client-side sequence ack entry point.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.network.protocol.game.ServerboundUseItemOnPacket",
+   "member": "public net.minecraft.network.protocol.game.ServerboundUseItemOnPacket(net.minecraft.world.InteractionHand, net.minecraft.world.phys.BlockHitResult, int);",
+   "notes": "public; third param is the sequence. Built for you inside useItemOn's lambda.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.network.protocol.game.ServerboundUseItemPacket",
+   "member": "public net.minecraft.network.protocol.game.ServerboundUseItemPacket(net.minecraft.world.InteractionHand, int, float, float);",
+   "notes": "public. NEW ON 26.2: carries yRot and xRot. useItem() fills them with player.getYRot()/player.getXRot() at send time, so a rotation-spoofing module must have the rotation applied to the player before calling useItem.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket",
+   "member": "public net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket(int);",
+   "notes": "public; sent by ensureHasSentCarriedItem().",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.InteractionResult",
+   "member": "public interface net.minecraft.world.InteractionResult { public static final InteractionResult$Success SUCCESS; SUCCESS_SERVER; CONSUME; public static final InteractionResult$Fail FAIL; public static final InteractionResult$Pass PASS; public static final InteractionResult$TryEmptyHandInteraction TRY_WITH_EMPTY_HAND; public default boolean consumesAction(); }",
+   "notes": "26.2: an INTERFACE with record implementations, not an enum. CONSUME is an InteractionResult$Success instance, so `result instanceof Success` is true for CONSUME too.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.InteractionResult$Success",
+   "member": "public net.minecraft.world.InteractionResult$SwingSource swingSource();",
+   "notes": "public record accessor. Also has heldItemTransformedTo(), heldItemTransformedTo(ItemStack), withoutItem(), wasItemInteraction(), itemContext().",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.InteractionResult$SwingSource",
+   "member": "public static final net.minecraft.world.InteractionResult$SwingSource NONE; CLIENT; SERVER;",
+   "notes": "Enum. CLIENT => the client must call player.swing(hand); SERVER => the server calls player.swing(hand, true) for you (verified in ServerGamePacketListenerImpl.handleUseItemOn).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public void swing(net.minecraft.world.InteractionHand);",
+   "notes": "public; also `public void swing(net.minecraft.world.InteractionHand, boolean);`. Fields: `public boolean swinging;`, `public net.minecraft.world.InteractionHand swingingArm;`, `public int swingTime;`.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "private void startUseItem();",
+   "notes": "PRIVATE — the whole vanilla right-click path (rightClickDelay, isHandsBusy, hand loop, swing, itemInHandRenderer.itemUsed) lives here and is not callable without an accessor mixin.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "private int rightClickDelay;",
+   "notes": "PRIVATE. Set to 4 at the top of startUseItem(); decremented once per Minecraft.tick(). Gates only the held-key auto-repeat: `if (this.options.keyUse.isDown() && this.rightClickDelay == 0 && !this.player.isUsingItem()) this.startUseItem();`. useItemOn does NOT check it — calling gameMode.useItemOn directly bypasses the 4-tick right-click cooldown entirely.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "protected int missTime;",
+   "notes": "PROTECTED. Left-click miss cooldown (set to 10 on a miss, 10000 while a screen is open); decremented in tick() only when no screen/overlay is open. Not consulted by useItemOn.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "public net.minecraft.client.multiplayer.MultiPlayerGameMode gameMode;",
+   "notes": "public field. Also public: `Options options`, `ClientLevel level`, `LocalPlayer player`, `net.minecraft.world.phys.HitResult hitResult`. `public static net.minecraft.client.Minecraft getInstance();`",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.player.LocalPlayer",
+   "member": "public net.minecraft.world.phys.HitResult raycastHitResult(float, net.minecraft.world.entity.Entity);",
+   "notes": "public, declared on LocalPlayer only (not on Player/LivingEntity/Entity). This is where 26.2 applies the reach clamp — uses blockInteractionRange()/entityInteractionRange() plus a private filterHitResult() that converts an over-range hit into BlockHitResult.miss(...). Also honours the item's DataComponents.ATTACK_RANGE component.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.player.LocalPlayer",
+   "member": "public boolean isHandsBusy();",
+   "notes": "public; startUseItem() skips everything when true.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.player.LocalPlayer",
+   "member": "public boolean isUsingItem();",
+   "notes": "public on LocalPlayer (overrides LivingEntity.isUsingItem()).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public double blockInteractionRange();",
+   "notes": "public — THE client-visible block reach accessor. MultiPlayerGameMode has no reach accessor of its own.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public double entityInteractionRange();",
+   "notes": "public — client-visible entity reach accessor.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public double getContainerInteractionRange();",
+   "notes": "public.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public boolean isWithinBlockInteractionRange(net.minecraft.core.BlockPos, double);",
+   "notes": "public, declared on Player so callable on LocalPlayer. This is the exact predicate the server runs (with 1.0 padding) in ServerGamePacketListenerImpl.handleUseItemOn — mirror it client-side to predict server rejection.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public boolean isWithinEntityInteractionRange(net.minecraft.world.entity.Entity, double);",
+   "notes": "public; also isWithinEntityInteractionRange(AABB, double) and isWithinAttackRange(ItemStack, AABB, double).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public static final float DEFAULT_BLOCK_INTERACTION_RANGE = 4.5f;",
+   "notes": "public static final (value from javap -constants). Also DEFAULT_ENTITY_INTERACTION_RANGE = 3.0f and CREATIVE_ENTITY_INTERACTION_RANGE_MODIFIER_VALUE = 2.0f.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.ai.attributes.Attributes",
+   "member": "public static final net.minecraft.core.Holder<net.minecraft.world.entity.ai.attributes.Attribute> BLOCK_INTERACTION_RANGE;",
+   "notes": "public static; also ENTITY_INTERACTION_RANGE. These back blockInteractionRange()/entityInteractionRange().",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public int getSelectedSlot();",
+   "notes": "public; also `public void setSelectedSlot(int);`, `public net.minecraft.world.item.ItemStack getSelectedItem();`, `public static boolean isHotbarSlot(int);`. 26.2 name — not selectedSlot/selected field access.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.inventory.ContainerInput",
+   "member": "public static final net.minecraft.world.inventory.ContainerInput PICKUP; QUICK_MOVE; SWAP; CLONE; THROW; QUICK_CRAFT; PICKUP_ALL;",
+   "notes": "Enum in minecraft-common. THIS IS THE 26.2 REPLACEMENT FOR ClickType — net.minecraft.world.inventory.ClickType does NOT exist (javap: 'class not found'). Also `public int id()` and `public static final StreamCodec<ByteBuf, ContainerInput> STREAM_CODEC`.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.inventory.AbstractContainerMenu",
+   "member": "public void clicked(int, int, net.minecraft.world.inventory.ContainerInput, net.minecraft.world.entity.player.Player);",
+   "notes": "public (slotIndex, buttonNum, containerInput, player). SWAP branch in the private doClick reads: `else if (containerInput == ContainerInput.SWAP && (buttonNum >= 0 && buttonNum < 9 || buttonNum == 40))` then `ItemStack source = inventory.getItem(buttonNum);` — so buttonNum 0..8 is the hotbar index and 40 is the offhand.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.inventory.AbstractContainerMenu",
+   "member": "public final int containerId;",
+   "notes": "public final field; also `public int getStateId();`. Player has `public net.minecraft.world.inventory.AbstractContainerMenu containerMenu;` and `public final net.minecraft.world.inventory.InventoryMenu inventoryMenu;`.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.phys.BlockHitResult",
+   "member": "public net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3, net.minecraft.core.Direction, net.minecraft.core.BlockPos, boolean);",
+   "notes": "public; also a 5-arg (Vec3, Direction, BlockPos, boolean, boolean) ctor and `public static BlockHitResult miss(Vec3, Direction, BlockPos)`.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.ClientLevel",
+   "member": "public net.minecraft.world.level.border.WorldBorder getWorldBorder();",
+   "notes": "public on ClientLevel; declared abstract on net.minecraft.world.level.CollisionGetter (NOT on Level itself). WorldBorder has `public boolean isWithinBounds(net.minecraft.core.BlockPos);`",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.ItemCooldowns",
+   "member": "public boolean isOnCooldown(net.minecraft.world.item.ItemStack);",
+   "notes": "public; reached via `public net.minecraft.world.item.ItemCooldowns getCooldowns();` on Player. performUseItemOn returns InteractionResult.PASS when this is true.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.server.network.ServerGamePacketListenerImpl",
+   "member": "public void handleUseItemOn(net.minecraft.network.protocol.game.ServerboundUseItemOnPacket packet);",
+   "notes": "SERVER-ONLY (net.minecraft.server.*, operates on ServerLevel/ServerPlayer) — not callable from client code. Listed only to document what the server validates: ackBlockChangesUpTo(packet.getSequence()), then `this.player.isWithinBlockInteractionRange(pos, 1.0)` (silent drop when false), then each axis of location-minus-block-centre must be < 1.0000001 (logs 'Rejecting UseItemOnPacket from {}: Location {} too far away from hit block {}'), then build-height / spawn-protection / level.mayInteract. Client-visible mirror: Player.isWithinBlockInteractionRange(BlockPos, double).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "getPickRange() / getReach() / getBlockReach() / any reach accessor",
+   "notes": "DOES NOT EXIST. Verified against the complete `javap -p net.minecraft.client.multiplayer.MultiPlayerGameMode` member list — there is no range/reach/pick accessor of any kind on this class. Use Player.blockInteractionRange()/entityInteractionRange() instead.",
+   "verified": false
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "handleInventoryMouseClick(int, int, int, net.minecraft.world.inventory.ClickType, net.minecraft.world.entity.player.Player)",
+   "notes": "DOES NOT EXIST on 26.2. `javap -p` shows no such member; `javap net.minecraft.world.inventory.ClickType` fails with 'class not found'. Renamed to handleContainerInput(int, int, int, ContainerInput, Player).",
+   "verified": false
+  }
+ ],
+ "gotchas": [
+  "Your mixin target is CORRECT as written. useItemOn(LocalPlayer, InteractionHand, BlockHitResult) is verbatim what javap prints, so `@Inject(method = \"useItemOn\", ...)` resolves. But note the asymmetry: useItemOn takes LocalPlayer while useItem takes Player — the mixin already handles this (it fully-qualifies LocalPlayer on the useItemOn handler and uses Player on the useItem handler). Do not 'tidy' them to the same type.",
+  "useItemOn OWNS the sequence number — a caller must not supply one. It calls startPrediction(minecraft.level, sequence -> { result.setValue(performUseItemOn(...)); return new ServerboundUseItemOnPacket(hand, blockHit, sequence); }). startPrediction pulls the int from BlockStatePredictionHandler.currentSequence(), passes it into the lambda, sends the returned packet, and closes the handler. Ack comes back as ClientboundBlockChangedAckPacket(int) -> ClientPacketListener.handleBlockChangedAck -> endPredictionsUpTo. Calling useItemOn is sufficient for a correctly ack-tracked interaction.",
+  "You cannot legally hand-roll the prediction from a mod package: ClientLevel.getBlockStatePredictionHandler() is PACKAGE-PRIVATE on 26.2 (javap prints no access modifier). Sending your own ServerboundUseItemOnPacket with a made-up sequence, or with sequence 0, desyncs the prediction handler and causes ghost blocks. Go through useItemOn.",
+  "Ordering inside useItemOn: performUseItemOn (the client-side world mutation / itemStack.useOn) runs INSIDE the lambda, therefore BEFORE connection.send(). An @Inject at HEAD of performUseItemOn is already inside the prediction scope; a HEAD inject on useItemOn is outside it, which is why cancelling there and returning FAIL is safe (no sequence gets burned).",
+  "useItemOn DOES NOT SWING. Neither does performUseItemOn. The swing lives in the private Minecraft.startUseItem(), and it is CONDITIONAL: `if (useResult instanceof Success success) { if (success.swingSource() == SwingSource.CLIENT) { this.player.swing(hand); ... } return; }`. Unconditionally calling player.swing() after useItemOn double-swings whenever swingSource() == SERVER, because ServerGamePacketListenerImpl.handleUseItemOn itself does `this.player.swing(hand, true)` in that case.",
+  "InteractionResult is an INTERFACE on 26.2, not an enum, and CONSUME is an InteractionResult$Success instance. So `result instanceof InteractionResult.Success` is TRUE for CONSUME as well as SUCCESS/SUCCESS_SERVER. Do not use == comparisons against InteractionResult.SUCCESS to mean 'it worked'; use consumesAction(), and use swingSource() to decide about the arm. Any pre-26.x code doing `if (result == InteractionResult.SUCCESS)` or expecting InteractionResultHolder is broken.",
+  "useItemOn does NO client-side reach check. Its only pre-send guard is the world border: `if (!this.minecraft.level.getWorldBorder().isWithinBounds(blockHit.getBlockPos())) return InteractionResult.FAIL;` — it returns InteractionResult.FAIL on that failure. Other early exits, all inside performUseItemOn: spectator -> InteractionResult.CONSUME; block whose requiredFeatures are not enabled -> FAIL; empty stack or item on cooldown -> PASS. This means you can call useItemOn with an arbitrarily distant BlockHitResult and the client will happily simulate and send it.",
+  "Vanilla's reach limit is enforced upstream, not in useItemOn: Minecraft.pick(float) -> LocalPlayer.raycastHitResult(float, Entity), whose private filterHitResult() rewrites any hit farther than blockInteractionRange()/entityInteractionRange() into BlockHitResult.miss(...). For entities Minecraft.startUseItem additionally checks player.isWithinEntityInteractionRange(entity, 0.0) explicitly; there is NO corresponding explicit block-range check in startUseItem. If you synthesize your own BlockHitResult you have bypassed the entire range system client-side.",
+  "The server still checks. ServerGamePacketListenerImpl.handleUseItemOn (server-only, ServerPlayer/ServerLevel, uncallable from client) requires player.isWithinBlockInteractionRange(pos, 1.0) — failing that it silently drops the packet with no feedback — and requires each axis of (hitLocation - blockCentre) to be < 1.0000001 or it logs 'Rejecting UseItemOnPacket from {}: Location {} too far away from hit block {}'. Mirror it client-side with the public Player.isWithinBlockInteractionRange(BlockPos, double) before sending.",
+  "handleInventoryMouseClick and net.minecraft.world.inventory.ClickType are both GONE on 26.2. Use handleContainerInput(int containerId, int slotNum, int buttonNum, ContainerInput containerInput, Player player) and net.minecraft.world.inventory.ContainerInput (in minecraft-common, so it is available to non-client code too). 'Swap with hotbar slot N' is ContainerInput.SWAP with buttonNum = N in 0..8; buttonNum = 40 means the offhand. Verified in AbstractContainerMenu.doClick's guard `containerInput == ContainerInput.SWAP && (buttonNum >= 0 && buttonNum < 9 || buttonNum == 40)`, which then reads `inventory.getItem(buttonNum)`.",
+  "handleContainerInput silently no-ops (LOGGER.warn 'Ignoring click in mismatching container') when the containerId you pass does not equal player.containerMenu.containerId. Always read the id off the live menu: player.containerMenu.containerId. It also snapshots every slot before calling menu.clicked(...) and ships only the changed slots as HashedStack — so mutating the menu yourself before calling it corrupts the diff the server receives.",
+  "MultiPlayerGameMode contains NO right-click rate limiter. Its gating fields are all block-BREAKING state: destroyDelay (private int, set to 5, consumed at the top of continueDestroyBlock), isDestroying (private boolean, public getter isDestroying()), destroyProgress (private float), destroyTicks (private float), destroyBlockPos (private BlockPos), destroyingItem (private ItemStack), carriedIndex (private int). The right-click throttle is Minecraft.rightClickDelay (PRIVATE int, set to 4 in startUseItem, decremented once per Minecraft.tick()), and it only gates the held-key auto-repeat branch. Calling gameMode.useItemOn directly is completely unthrottled — implement your own delay or you will spam N packets per tick.",
+  "Minecraft.startUseItem() is PRIVATE, so you cannot reuse vanilla's full right-click path (hand loop over InteractionHand.values(), isHandsBusy/isDestroying gates, feature-flag check, swing decision, itemInHandRenderer.itemUsed) without an accessor mixin. If you call useItemOn directly you must replicate whichever of those you need. Two easy-to-miss ones: startUseItem returns early on `useResult instanceof Fail` (it does NOT fall through to useItem for that hand), and it only calls gameRenderer.itemInHandRenderer.itemUsed(hand) when the stack count actually changed or the player hasInfiniteMaterials().",
+  "MultiPlayerGameMode has no reach accessor at all — do not look for getPickRange/getReach here. Use Player.blockInteractionRange() / Player.entityInteractionRange() (both public doubles, inherited by LocalPlayer), the predicates isWithinBlockInteractionRange(BlockPos, double) / isWithinEntityInteractionRange(Entity, double), and the constants Player.DEFAULT_BLOCK_INTERACTION_RANGE = 4.5f / DEFAULT_ENTITY_INTERACTION_RANGE = 3.0f. Both values are attribute-driven (Attributes.BLOCK_INTERACTION_RANGE / ENTITY_INTERACTION_RANGE), so never hardcode 4.5/3.0 — read the accessor.",
+  "Hotbar sync is automatic and you almost never need to touch it. ensureHasSentCarriedItem() is PRIVATE and runs (a) as the first statement of MultiPlayerGameMode.tick(), which Minecraft.tick() invokes in its 'gameMode' profiler section — BEFORE this.pick(1.0F), before gui.tick(), and before handleKeybinds() reaches startUseItem/useItemOn — and (b) as the first statement of useItemOn itself, plus useItem, continueDestroyBlock, attack, interact, releaseUsingItem, piercingAttack. So switching slots and calling useItemOn in the same tick still emits ServerboundSetCarriedItemPacket ahead of ServerboundUseItemOnPacket. It is NOT called by startDestroyBlock or destroyBlock.",
+  "But ensureHasSentCarriedItem() only fires when minecraft.player.getInventory().getSelectedSlot() != carriedIndex. Switch slots via Inventory.setSelectedSlot(int) (26.2 name — not a `selected` field). If you send your own ServerboundSetCarriedItemPacket without changing the inventory field, carriedIndex goes stale and a later genuine slot change can be skipped, leaving the server holding the wrong item during your interaction.",
+  "26.2 added rotation to the item-use packet: useItem builds `new ServerboundUseItemPacket(hand, sequence, player.getYRot(), player.getXRot())` and reads the rotations at send time inside the prediction lambda. A module that spoofs rotation must have the yaw/pitch already applied to the player before calling useItem, or the server sees the real rotation. useItemOn's packet carries no rotation — only hand, blockHit, sequence.",
+  "MultiPlayerGameMode.interact (entity right-click) does NOT use startPrediction — it sends ServerboundInteractPacket directly with no sequence number. Do not assume every entry point on this class is prediction-wrapped; only useItemOn, useItem, startDestroyBlock and continueDestroyBlock are.",
+  "MultiPlayerGameMode lives in minecraft-client-only.jar (verified: 0 hits in minecraft-common.jar, 1 in minecraft-client-only.jar), so anything referencing it must stay in the client source set. ContainerInput and Player, by contrast, are in minecraft-common."
+ ],
+ "usage": "// All symbols below were verified by javap/decompile in this run.\n// Placing a block without going through the private Minecraft.startUseItem().\nimport net.minecraft.client.Minecraft;\nimport net.minecraft.client.player.LocalPlayer;\nimport net.minecraft.core.BlockPos;\nimport net.minecraft.core.Direction;\nimport net.minecraft.world.InteractionHand;\nimport net.minecraft.world.InteractionResult;\nimport net.minecraft.world.phys.BlockHitResult;\nimport net.minecraft.world.phys.Vec3;\nimport net.minecraft.world.inventory.ContainerInput;\n\nvoid placeAt(int hotbarSlot, BlockPos target, Direction face, Vec3 hitVec) {\n    Minecraft mc = Minecraft.getInstance();\n    LocalPlayer player = mc.player;\n    if (player == null || mc.level == null || mc.gameMode == null) return;\n\n    // Own throttle: nothing in MultiPlayerGameMode rate-limits useItemOn,\n    // and Minecraft.rightClickDelay is private and never consulted here.\n    if (mc.gameMode.isDestroying()) return;\n    if (player.isHandsBusy()) return;\n\n    // Switch through the inventory so the private ensureHasSentCarriedItem()\n    // at the top of useItemOn emits ServerboundSetCarriedItemPacket first.\n    player.getInventory().setSelectedSlot(hotbarSlot);\n\n    // useItemOn checks the world border only; it does NO reach check.\n    // Mirror the server's own predicate so we do not send a silently-dropped packet.\n    if (!player.isWithinBlockInteractionRange(target, 1.0)) return;\n    if (!mc.level.getWorldBorder().isWithinBounds(target)) return;\n\n    BlockHitResult hit = new BlockHitResult(hitVec, face, target, false);\n\n    // No sequence argument: useItemOn allocates it via startPrediction and\n    // builds ServerboundUseItemOnPacket(hand, blockHit, sequence) internally.\n    InteractionResult result = mc.gameMode.useItemOn(player, InteractionHand.MAIN_HAND, hit);\n\n    if (result instanceof InteractionResult.Success success) {\n        // useItemOn never swings; and only swing when the client owns it,\n        // otherwise the server's own player.swing(hand, true) double-swings.\n        if (success.swingSource() == InteractionResult.SwingSource.CLIENT) {\n            player.swing(InteractionHand.MAIN_HAND);\n        }\n    } else if (result instanceof InteractionResult.Fail) {\n        // outside the world border, or the block's feature flag is disabled\n    }\n}\n\n// Hotbar-swap style container click (26.2 rename of handleInventoryMouseClick/ClickType).\nvoid swapWithHotbar(int slotIndex, int hotbarIndex) {\n    Minecraft mc = Minecraft.getInstance();\n    LocalPlayer player = mc.player;\n    if (player == null || mc.gameMode == null) return;\n    // buttonNum 0..8 = hotbar index, 40 = offhand.\n    mc.gameMode.handleContainerInput(\n        player.containerMenu.containerId, slotIndex, hotbarIndex, ContainerInput.SWAP, player);\n}"
+}

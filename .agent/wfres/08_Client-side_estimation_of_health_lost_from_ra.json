@@ -1,0 +1,420 @@
+{
+ "area": "Client-side estimation of health lost from raw explosion damage — Minecraft 26.2, Mojang official mappings (verified against ~/.gradle/caches/fabric-loom/26.2/minecraft-common.jar + minecraft-client-only.jar)",
+ "signatures": [
+  {
+   "fqcn": "net.minecraft.world.damagesource.CombatRules",
+   "member": "public static float getDamageAfterAbsorb(net.minecraft.world.entity.LivingEntity, float, net.minecraft.world.damagesource.DamageSource, float, float)",
+   "notes": "public static, client-callable. Params: (victim, damage, source, totalArmor, armorToughness). Body: toughness = 2.0F + armorToughness/4.0F; realArmor = Mth.clamp(totalArmor - damage/toughness, totalArmor*0.2F, 20.0F); armorFraction = realArmor/25.0F; then ONLY if source.getWeaponItem()!=null && victim.level() instanceof ServerLevel does it call EnchantmentHelper.modifyArmorEffectiveness(...) clamped to [0,1]; return damage * (1.0F - modifiedArmorFraction). On a client level that branch is skipped, so the client result equals the server result whenever no Breach-style armor-effectiveness enchantment is involved. For explosions getWeaponItem() is null anyway (directEntity is null or not an item holder).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.damagesource.CombatRules",
+   "member": "public static float getDamageAfterMagicAbsorb(float, float)",
+   "notes": "public static, client-callable. Params: (damage, totalMagicArmor). Body: realArmor = Mth.clamp(totalMagicArmor, 0.0F, 20.0F); return damage * (1.0F - realArmor/25.0F). EPF caps at 20 -> max 80% reduction.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.damagesource.CombatRules",
+   "member": "public static final float MAX_ARMOR = 20.0F;",
+   "notes": "Quoted from decompiled source.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.damagesource.CombatRules",
+   "member": "public static final float ARMOR_PROTECTION_DIVIDER = 25.0F;",
+   "notes": "Quoted from decompiled source.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.damagesource.CombatRules",
+   "member": "public static final float BASE_ARMOR_TOUGHNESS = 2.0F;",
+   "notes": "Quoted from decompiled source.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.damagesource.CombatRules",
+   "member": "public static final float MIN_ARMOR_RATIO = 0.2F;",
+   "notes": "Quoted from decompiled source.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.damagesource.CombatRules",
+   "member": "private static final int NUM_ARMOR_ITEMS = 4;",
+   "notes": "private — not callable, listed only because it documents the 4-piece assumption.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public int getArmorValue()",
+   "notes": "Returns int, NOT float. Body: return Mth.floor(this.getAttributeValue(Attributes.ARMOR)). Client-callable; ARMOR is synced via ClientboundUpdateAttributesPacket (ClientPacketListener.handleUpdateAttributes sets base + transient modifiers).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public double getAttributeValue(net.minecraft.core.Holder<net.minecraft.world.entity.ai.attributes.Attribute>)",
+   "notes": "There is NO getArmorToughness() on 26.2. Armour toughness is only reachable as (float) getAttributeValue(Attributes.ARMOR_TOUGHNESS) — exactly what LivingEntity.getDamageAfterArmorAbsorb does. Client-callable.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public float getAbsorptionAmount()",
+   "notes": "On LivingEntity this reads a plain non-synced field, so for a non-player entity the client always sees 0. Player OVERRIDES it (see next entry) to read synched entity data, so it is correct for the local player.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public float getAbsorptionAmount()",
+   "notes": "Override: return (Float)this.getEntityData().get(DATA_PLAYER_ABSORPTION_ID). Fully synced -> reliable client-side for LocalPlayer.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public final void setAbsorptionAmount(float)",
+   "notes": "Clamps via Mth.clamp(x, 0.0F, this.getMaxAbsorption()). Do not call client-side; listed to explain why the double decrement in LivingEntity.actuallyHurt is a no-op.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public float getHealth()",
+   "notes": "Reads DATA_HEALTH_ID synched data. Client-callable and synced.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public final float getMaxHealth()",
+   "notes": "final. Body: (float) getAttributeValue(Attributes.MAX_HEALTH). Client-callable.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public final float getMaxAbsorption()",
+   "notes": "final. Body: (float) getAttributeValue(Attributes.MAX_ABSORPTION). Client-callable.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "protected float getDamageAfterArmorAbsorb(net.minecraft.world.damagesource.DamageSource, float)",
+   "notes": "PROTECTED — not callable from outside the class hierarchy without an accessor/mixin. Body: if (!damageSource.is(DamageTypeTags.BYPASSES_ARMOR)) { hurtArmor(...); damage = CombatRules.getDamageAfterAbsorb(this, damage, damageSource, this.getArmorValue(), (float)this.getAttributeValue(Attributes.ARMOR_TOUGHNESS)); } return damage;",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "protected float getDamageAfterMagicAbsorb(net.minecraft.world.damagesource.DamageSource, float)",
+   "notes": "PROTECTED. Contains the resistance arithmetic and the ServerLevel-gated EnchantmentHelper.getDamageProtection call (falls back to enchantmentArmor = 0.0F on a client level).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "protected void actuallyHurt(net.minecraft.server.level.ServerLevel, net.minecraft.world.damagesource.DamageSource, float)",
+   "notes": "SERVER-ONLY (takes ServerLevel) and protected. Order: armor absorb -> magic absorb -> absorption soak -> setHealth. Absorption soak: float toHealth = Math.max(dmg - getAbsorptionAmount(), 0.0F); setAbsorptionAmount(getAbsorptionAmount() - (dmg - toHealth)); if (toHealth != 0) { recordDamage; setHealth(getHealth() - toHealth); setAbsorptionAmount(getAbsorptionAmount() - toHealth); }  — that last line is a no-op because absorption is already 0 and setAbsorptionAmount clamps to >= 0.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "protected void actuallyHurt(net.minecraft.server.level.ServerLevel, net.minecraft.world.damagesource.DamageSource, float)",
+   "notes": "SERVER-ONLY. Player's override does NOT re-subtract absorption a second time, and adds causeFoodExhaustion(source.getFoodExhaustion()). Same absorb-then-health math otherwise.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public boolean hurtServer(net.minecraft.server.level.ServerLevel, net.minecraft.world.damagesource.DamageSource, float)",
+   "notes": "SERVER-ONLY. This is where the invulnerability-tick logic lives: if (this.invulnerableTime > 10.0F && !source.is(DamageTypeTags.BYPASSES_COOLDOWN)) { if (damage <= this.lastHurt) return false; actuallyHurt(level, source, damage - this.lastHurt); this.lastHurt = damage; } else { this.lastHurt = damage; this.invulnerableTime = 20; actuallyHurt(level, source, damage); }. There is NO client-side hurt() entry point on 26.2.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public boolean hurtServer(net.minecraft.server.level.ServerLevel, net.minecraft.world.damagesource.DamageSource, float)",
+   "notes": "SERVER-ONLY. Difficulty scaling lives HERE, before super: if (source.scalesWithDifficulty()) { PEACEFUL -> damage = 0; EASY -> damage = Math.min(damage/2.0F + 1.0F, damage); HARD -> damage = damage * 3.0F / 2.0F; } and returns false when abilities.invulnerable && !source.is(BYPASSES_INVULNERABILITY).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public void handleDamageEvent(net.minecraft.world.damagesource.DamageSource)",
+   "notes": "CLIENT-side handler (ClientPacketListener.handleDamageEvent -> entity.handleDamageEvent(packet.getSource(this.level))). Sets this.invulnerableTime = 20, hurtDuration = 10, hurtTime = 10. It does NOT set lastHurt.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.Entity",
+   "member": "public int invulnerableTime",
+   "notes": "PUBLIC mutable field, meaningfully tracked on the client for the local player: set to 20 in handleDamageEvent and decremented in LivingEntity.tick's `if (this.invulnerableTime > 0 && !(this instanceof ServerPlayer))` branch (that branch is OUTSIDE the isClientSide gate).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "protected float lastHurt",
+   "notes": "PROTECTED and NEVER set client-side (only in hurtServer). The client's copy is always 0, so the client cannot reproduce the `damage - lastHurt` i-frame partial-damage path. This is the single biggest source of client/server divergence for a damage estimator.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public boolean hasEffect(net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect>)",
+   "notes": "Takes a Holder, not a MobEffect. Client-callable; reads activeEffects, populated by ClientPacketListener.handleUpdateMobEffect.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public net.minecraft.world.effect.MobEffectInstance getEffect(net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect>)",
+   "notes": "@Nullable. Takes a Holder. Client-callable.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.effect.MobEffects",
+   "member": "public static final net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect> RESISTANCE;",
+   "notes": "It IS a Holder<MobEffect> on 26.2 (was a plain MobEffect / StatusEffect pre-1.21). Pass it straight to hasEffect/getEffect. Same shape for FIRE_RESISTANCE, ABSORPTION, HEALTH_BOOST.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.effect.MobEffectInstance",
+   "member": "public int getAmplifier()",
+   "notes": "0-based (Resistance I -> 0). Client-callable.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.ai.attributes.Attributes",
+   "member": "public static final net.minecraft.core.Holder<net.minecraft.world.entity.ai.attributes.Attribute> ARMOR;",
+   "notes": "Holder-typed on 26.2. Also verified: ARMOR_TOUGHNESS, MAX_HEALTH, MAX_ABSORPTION, KNOCKBACK_RESISTANCE, EXPLOSION_KNOCKBACK_RESISTANCE, ATTACK_KNOCKBACK.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.ai.attributes.AttributeInstance",
+   "member": "public double getValue()",
+   "notes": "Also public double getBaseValue(). Reachable via LivingEntity.getAttribute(Holder<Attribute>).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.enchantment.EnchantmentHelper",
+   "member": "public static float getDamageProtection(net.minecraft.server.level.ServerLevel, net.minecraft.world.entity.LivingEntity, net.minecraft.world.damagesource.DamageSource)",
+   "notes": "SERVER-ONLY — first param is ServerLevel. NOT client-callable. Iterates all EquipmentSlot.VALUES and sums via Enchantment.modifyDamageProtection into a MutableFloat.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.enchantment.Enchantment",
+   "member": "public void modifyDamageProtection(net.minecraft.server.level.ServerLevel, int, net.minecraft.world.item.ItemStack, net.minecraft.world.entity.Entity, net.minecraft.world.damagesource.DamageSource, org.apache.commons.lang3.mutable.MutableFloat)",
+   "notes": "SERVER-ONLY. Needs ServerLevel purely to build the LootContext (Enchantment.damageContext -> new LootParams.Builder(serverLevel)) used to evaluate ConditionalEffect.requirements().",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.enchantment.EnchantmentHelper",
+   "member": "public static int getItemEnchantmentLevel(net.minecraft.core.Holder<net.minecraft.world.item.enchantment.Enchantment>, net.minecraft.world.item.ItemInstance)",
+   "notes": "CLIENT-CALLABLE. Second param is ItemInstance on 26.2, NOT ItemStack — ItemStack implements ItemInstance so passing a stack still compiles. Body: piece.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY).getLevel(enchantment). This is the best client-side proxy for protection.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.enchantment.EnchantmentHelper",
+   "member": "public static int getEnchantmentLevel(net.minecraft.core.Holder<net.minecraft.world.item.enchantment.Enchantment>, net.minecraft.world.entity.LivingEntity)",
+   "notes": "CLIENT-CALLABLE (no ServerLevel). Returns the HIGHEST single-piece level across the enchantment's own slots, not the sum — so it is wrong for Protection/Blast Protection EPF, which sums across the 4 armour pieces. Use getItemEnchantmentLevel per slot instead.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.enchantment.Enchantment",
+   "member": "public <T> java.util.List<T> getEffects(net.minecraft.core.component.DataComponentType<java.util.List<T>>)",
+   "notes": "CLIENT-CALLABLE. Lets you read the data-driven values off the synced enchantment registry. Pair with EnchantmentEffectComponents.DAMAGE_PROTECTION.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.enchantment.EnchantmentEffectComponents",
+   "member": "public static final net.minecraft.core.component.DataComponentType<java.util.List<net.minecraft.world.item.enchantment.ConditionalEffect<net.minecraft.world.item.enchantment.effects.EnchantmentValueEffect>>> DAMAGE_PROTECTION;",
+   "notes": "Client-visible constant.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.enchantment.ConditionalEffect",
+   "member": "public T effect()",
+   "notes": "CLIENT-CALLABLE. Also public boolean matches(net.minecraft.world.level.storage.loot.LootContext) — that one is effectively server-only because building the LootContext requires a ServerLevel.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.enchantment.effects.EnchantmentValueEffect",
+   "member": "public abstract float process(int, net.minecraft.util.RandomSource, float)",
+   "notes": "CLIENT-CALLABLE — (level, random, currentValue) -> newValue. Takes/returns float, not MutableFloat. This is how you evaluate the data-driven +1/level (Protection) or +2/level (Blast Protection) without a server.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.enchantment.Enchantments",
+   "member": "public static final net.minecraft.resources.ResourceKey<net.minecraft.world.item.enchantment.Enchantment> BLAST_PROTECTION;",
+   "notes": "ResourceKey, not a Holder. Also verified PROTECTION, FIRE_PROTECTION, PROJECTILE_PROTECTION. Resolve to a Holder via level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(key).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.core.HolderGetter",
+   "member": "public default net.minecraft.core.Holder$Reference<T> getOrThrow(net.minecraft.resources.ResourceKey<T>)",
+   "notes": "Inherited by Registry<T> (Registry extends HolderLookup.RegistryLookup extends HolderGetter). Registry itself has NO getOrThrow of its own; Registry.get(ResourceKey) returns Optional<Holder.Reference<T>>.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.core.RegistryAccess",
+   "member": "public default <E> net.minecraft.core.Registry<E> lookupOrThrow(net.minecraft.resources.ResourceKey<? extends net.minecraft.core.Registry<? extends E>>)",
+   "notes": "Client-callable. Registries.ENCHANTMENT and Registries.DAMAGE_TYPE are both in RegistryDataLoader.SYNCHRONIZED_REGISTRIES with their DIRECT_CODEC, so the client holds the FULL enchantment definitions including effects.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.Level",
+   "member": "public net.minecraft.core.RegistryAccess registryAccess()",
+   "notes": "On Level, so available from ClientLevel.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.Level",
+   "member": "public net.minecraft.world.damagesource.DamageSources damageSources()",
+   "notes": "On Level (not just ServerLevel) — you can build real DamageSource objects client-side.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.damagesource.DamageSources",
+   "member": "public net.minecraft.world.damagesource.DamageSource explosion(net.minecraft.world.entity.Entity, net.minecraft.world.entity.Entity)",
+   "notes": "Both params @Nullable. Body: return this.source(cause != null && entity != null ? DamageTypes.PLAYER_EXPLOSION : DamageTypes.EXPLOSION, entity, cause). Also public DamageSource explosion(net.minecraft.world.level.Explosion) (@Nullable).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.damagesource.DamageSource",
+   "member": "public boolean is(net.minecraft.tags.TagKey<net.minecraft.world.damagesource.DamageType>)",
+   "notes": "Client-callable (delegates to Holder.is; damage-type tags are synced). Also public boolean is(net.minecraft.resources.ResourceKey<net.minecraft.world.damagesource.DamageType>).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.damagesource.DamageSource",
+   "member": "public boolean scalesWithDifficulty()",
+   "notes": "Client-callable. switch on this.type().scaling(): NEVER -> false; WHEN_CAUSED_BY_LIVING_NON_PLAYER -> causingEntity instanceof LivingEntity && !(causingEntity instanceof Player); ALWAYS -> true.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.damagesource.DamageSource",
+   "member": "public net.minecraft.world.item.ItemStack getWeaponItem()",
+   "notes": "@Nullable. Body: directEntity != null ? directEntity.getWeaponItem() : null. Null for explosions, which is why CombatRules' ServerLevel branch never matters for blasts.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.damagesource.DamageTypes",
+   "member": "public static final net.minecraft.resources.ResourceKey<net.minecraft.world.damagesource.DamageType> EXPLOSION;",
+   "notes": "Registered as: new DamageType(\"explosion\", DamageScaling.ALWAYS, 0.1F). Shipped data/minecraft/damage_type/explosion.json = {\"exhaustion\": 0.1, \"message_id\": \"explosion\", \"scaling\": \"always\"}.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.damagesource.DamageTypes",
+   "member": "public static final net.minecraft.resources.ResourceKey<net.minecraft.world.damagesource.DamageType> PLAYER_EXPLOSION;",
+   "notes": "Registered as: new DamageType(\"explosion.player\", DamageScaling.ALWAYS, 0.1F). Same scaling: always.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.tags.DamageTypeTags",
+   "member": "public static final net.minecraft.tags.TagKey<net.minecraft.world.damagesource.DamageType> BYPASSES_ARMOR;",
+   "notes": "Shipped data/minecraft/tags/damage_type/bypasses_armor.json does NOT list explosion or player_explosion -> explosions DO go through armour. Members: on_fire, in_wall, cramming, drown, fly_into_wall, generic, wither, dragon_breath, starve, fall, ender_pearl, freeze, stalagmite, magic, indirect_magic, out_of_world, generic_kill, sonic_boom, outside_border.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.tags.DamageTypeTags",
+   "member": "public static final net.minecraft.tags.TagKey<net.minecraft.world.damagesource.DamageType> IS_EXPLOSION;",
+   "notes": "Shipped tag = [fireworks, explosion, player_explosion, bad_respawn_point]. This is the tag Blast Protection's requirements predicate tests.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.tags.DamageTypeTags",
+   "member": "public static final net.minecraft.tags.TagKey<net.minecraft.world.damagesource.DamageType> BYPASSES_COOLDOWN;",
+   "notes": "Has NO vanilla members — DamageTypeTagsProvider never adds to it. So every damage type, explosions included, is subject to the 10-tick i-frame partial-damage rule.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.LevelAccessor",
+   "member": "public default net.minecraft.world.Difficulty getDifficulty()",
+   "notes": "Client-callable via Level (Level implements LevelAccessor). Body: this.getLevelData().getDifficulty(); ClientLevel.ClientLevelData holds a real, server-synced Difficulty with setDifficulty from the change-difficulty packet.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.Items",
+   "member": "public static final net.minecraft.world.item.Item TOTEM_OF_UNDYING;",
+   "notes": "Client-visible constant, but see the DEATH_PROTECTION entry — the item identity is NOT what vanilla checks.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.core.component.DataComponents",
+   "member": "public static final net.minecraft.core.component.DataComponentType<net.minecraft.world.item.component.DeathProtection> DEATH_PROTECTION;",
+   "notes": "THIS is the real trigger on 26.2. LivingEntity.checkTotemDeathProtection is `private` (server-only path), but its condition is fully reproducible client-side: !killingDamage.is(DamageTypeTags.BYPASSES_INVULNERABILITY) AND one of getItemInHand(MAIN_HAND)/getItemInHand(OFF_HAND) has a non-null DEATH_PROTECTION component. On success it does setHealth(1.0F) and consumes one item. Components are synced, so the check is reachable client-side.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.component.DeathProtection",
+   "member": "public static final net.minecraft.world.item.component.DeathProtection TOTEM_OF_UNDYING;",
+   "notes": "Record with List<ConsumeEffect> deathEffects(). Client-visible.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "private boolean checkTotemDeathProtection(net.minecraft.world.damagesource.DamageSource)",
+   "notes": "PRIVATE — not callable at all from outside. Reimplement the condition (see DEATH_PROTECTION entry) rather than trying to reach it.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public net.minecraft.world.item.ItemStack getItemBySlot(net.minecraft.world.entity.EquipmentSlot)",
+   "notes": "Client-callable. Armour slots are EquipmentSlot.HEAD/CHEST/LEGS/FEET (EquipmentSlot also has MAINHAND, OFFHAND, BODY, SADDLE, and a public static final List<EquipmentSlot> VALUES).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public net.minecraft.world.item.ItemStack getItemInHand(net.minecraft.world.InteractionHand)",
+   "notes": "Client-callable — use for the totem check.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public net.minecraft.world.item.ItemStack getItemBlockingWith()",
+   "notes": "@Nullable, PUBLIC, client-callable. Returns useItem only if it has DataComponents.BLOCKS_ATTACKS and elapsedTicks >= blocksAttacks.blockDelayTicks(). Also public boolean isBlocking() = getItemBlockingWith() != null.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.component.BlocksAttacks",
+   "member": "public float resolveBlockedDamage(net.minecraft.world.damagesource.DamageSource, float, double)",
+   "notes": "PUBLIC and client-callable (params: source, dealtDamage, angleRadians). Sums DamageReduction.resolve then Mth.clamp(blocked, 0, dealtDamage). Vanilla shield = new BlocksAttacks(0.25F, 1.0F, List.of(new DamageReduction(90.0F, Optional.empty(), 0.0F, 1.0F)), new ItemDamageFunction(3.0F,1.0F,1.0F), Optional.of(BYPASSES_SHIELD), ...) -> blocks 100% of damage within a 90-degree frontal cone, and explosion is NOT in bypasses_shield, so a raised shield fully negates blast damage from the front.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public float applyItemBlocking(net.minecraft.server.level.ServerLevel, net.minecraft.world.damagesource.DamageSource, float)",
+   "notes": "SERVER-ONLY wrapper around resolveBlockedDamage. To model shields client-side, call BlocksAttacks.resolveBlockedDamage yourself with angle = Math.acos(horizontalNormalize(sourcePos - playerPos) dot calculateViewVector(0, getYHeadRot())).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.util.Mth",
+   "member": "public static float clamp(float, float, float)",
+   "notes": "Client-callable helper used throughout the damage path.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.Entity",
+   "member": "public net.minecraft.util.RandomSource getRandom()",
+   "notes": "Needed as the RandomSource argument to EnchantmentValueEffect.process.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "public net.minecraft.client.player.LocalPlayer player;",
+   "notes": "Public field. Also `public net.minecraft.client.multiplayer.ClientLevel level;` and `public static net.minecraft.client.Minecraft getInstance()`. LocalPlayer extends AbstractClientPlayer extends Player extends LivingEntity.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Abilities",
+   "member": "public boolean invulnerable",
+   "notes": "Public field, reached via Player.getAbilities(). Synced (creative/spectator). Short-circuits all damage unless BYPASSES_INVULNERABILITY.",
+   "verified": true
+  }
+ ],
+ "gotchas": [
+  "CombatRules.getDamageAfterAbsorb now takes FIVE args including the victim and the DamageSource: (LivingEntity, float damage, DamageSource, float totalArmor, float armorToughness). A caller written against the old 3-arg (damage, armor, toughness) form will not compile.",
+  "There is no getArmorToughness() on LivingEntity. Toughness is only available as (float) livingEntity.getAttributeValue(Attributes.ARMOR_TOUGHNESS). getArmorValue() returns int (floored), not float.",
+  "MobEffects.RESISTANCE is a Holder<MobEffect>, and hasEffect/getEffect take Holder<MobEffect>. Code that passed a bare MobEffect/StatusEffect will not compile. Attributes.* are likewise Holder<Attribute>.",
+  "Resistance is NOT a flat 20%-per-level multiply of the modern form some code assumes; the exact 26.2 arithmetic in LivingEntity.getDamageAfterMagicAbsorb is: int absorbValue = (amplifier + 1) * 5; int absorb = 25 - absorbValue; damage = Math.max(damage * absorb / 25.0F, 0.0F). Amplifier is 0-based, so Resistance V (amplifier 4) yields absorb == 0 and total immunity. It is gated on !source.is(BYPASSES_EFFECTS) and !source.is(BYPASSES_RESISTANCE), and it runs AFTER armour, not before.",
+  "EnchantmentHelper.getDamageProtection's first parameter is a ServerLevel, so it is flatly uncallable from client code — and LivingEntity.getDamageAfterMagicAbsorb silently substitutes enchantmentArmor = 0.0F when level() is not a ServerLevel. Any client-side estimator that just calls the vanilla path will therefore under-report protection to zero. Same for EnchantmentHelper.modifyArmorEffectiveness, isImmuneToDamage, modifyDamage, tickEffects, and Enchantment.modifyDamageProtection.",
+  "There IS still a client-callable route to the data-driven protection value, contrary to the usual assumption: Registries.ENCHANTMENT is in RegistryDataLoader.SYNCHRONIZED_REGISTRIES with Enchantment.DIRECT_CODEC, so the client holds full effect definitions. holder.value().getEffects(EnchantmentEffectComponents.DAMAGE_PROTECTION) then ConditionalEffect.effect().process(level, random, value) needs no ServerLevel. What you CANNOT evaluate is ConditionalEffect.requirements() — a LootItemCondition needing a LootContext built from a ServerLevel — so you must decide applicability yourself (for Blast Protection: source.is(DamageTypeTags.IS_EXPLOSION) && !source.is(DamageTypeTags.BYPASSES_INVULNERABILITY); for Protection: just !source.is(BYPASSES_INVULNERABILITY)).",
+  "EnchantmentHelper.getEnchantmentLevel(Holder, LivingEntity) is client-callable but returns the MAXIMUM single-piece level, not the sum across armour pieces. Using it for Protection/Blast Protection EPF silently under-counts by up to 4x. getDamageProtection sums over every EquipmentSlot, so you must loop HEAD/CHEST/LEGS/FEET with getItemEnchantmentLevel per stack.",
+  "EnchantmentHelper.getItemEnchantmentLevel's second parameter is net.minecraft.world.item.ItemInstance now, not ItemStack (ItemStack implements ItemInstance, so existing call sites still compile — but a mixin/handle signature written as (Holder, ItemStack) will not resolve).",
+  "Explosions do NOT bypass armour on 26.2 — verified from the shipped data/minecraft/tags/damage_type/bypasses_armor.json, which omits explosion and player_explosion. They also do not bypass effects, resistance, enchantments, cooldown, or shields. They ARE in is_explosion and no_knockback.",
+  "Explosion and player_explosion both carry scaling = \"always\" (DamageScaling.ALWAYS), so Player.hurtServer's difficulty scaling always applies to the local player: PEACEFUL -> 0, EASY -> min(d/2 + 1, d), HARD -> d * 3/2, NORMAL unchanged. This happens BEFORE armour, and mc.level.getDifficulty() is genuinely synced, so it is cheap to model — omitting it makes every HARD-difficulty estimate 33% low.",
+  "DamageTypeTags.BYPASSES_COOLDOWN has zero vanilla members, so the 10-tick invulnerability rule applies to explosions. But LivingEntity.lastHurt is only ever assigned in hurtServer, never in the client's handleDamageEvent, so the client's lastHurt is permanently 0 and the `actuallyHurt(damage - lastHurt)` partial-damage branch cannot be reproduced. invulnerableTime itself IS usable client-side (handleDamageEvent sets it to 20, and LivingEntity.tick decrements it outside the isClientSide gate) — so you can tell you are in i-frames, you just cannot tell how much damage the server will subtract. Treat invulnerableTime > 10 as \"estimate is an upper bound of unknown tightness\".",
+  "Absorption is a plain unsynced field on LivingEntity but Player OVERRIDES getAbsorptionAmount()/internalSetAbsorptionAmount to use DATA_PLAYER_ABSORPTION_ID synched data. So it is reliable for the local player and always 0 on the client for non-player mobs — do not reuse a player-tuned estimator for mobs.",
+  "Armour attribute modifiers from worn gear are applied only server-side: LivingEntity.detectEquipmentUpdates (which calls collectEquipmentChanges, the thing that addTransientModifier's item modifiers) sits inside `if (!this.level().isClientSide())`. The client's correct ARMOR/ARMOR_TOUGHNESS come from ClientboundUpdateAttributesPacket instead. That is fine for reading, but means you must not expect the client to derive armour from the equipped stacks itself, and there can be a one-tick lag right after an armour swap.",
+  "A raised shield fully negates explosion damage from the front on 26.2 and this is easy to miss: applyItemBlocking runs before armour in hurtServer, explosion is absent from bypasses_shield, and the vanilla shield's DamageReduction is (90-degree cone, no type filter, base 0.0, factor 1.0) = 100% blocked. The server-only wrapper is applyItemBlocking(ServerLevel, ...) but BlocksAttacks.resolveBlockedDamage and LivingEntity.getItemBlockingWith()/isBlocking() are both public and client-callable, so model it.",
+  "Totem of Undying is not an item check any more. LivingEntity.checkTotemDeathProtection is private and looks for DataComponents.DEATH_PROTECTION on either hand's stack, gated on !killingDamage.is(DamageTypeTags.BYPASSES_INVULNERABILITY); on success it sets health to 1.0F and shrinks the stack. Comparing against Items.TOTEM_OF_UNDYING works for vanilla but misses any datapack item carrying the component. Note the totem check runs only after isDeadOrDying(), i.e. after health already hit 0.",
+  "There is no client-side hurt()/damage() entry point at all: the whole pipeline is hurtServer(ServerLevel, ...) / actuallyHurt(ServerLevel, ...), and getDamageAfterArmorAbsorb / getDamageAfterMagicAbsorb are protected. A client estimator must reimplement the sequence rather than call into it."
+ ],
+ "usage": "// Verified: this file compiled cleanly with javac 25 against\n//   ~/.gradle/caches/fabric-loom/26.2/minecraft-common.jar + minecraft-client-only.jar\n// Every symbol below was confirmed by javap/vineflower in this run.\n//\n// Pipeline order copied from Player.hurtServer -> LivingEntity.hurtServer -> Player.actuallyHurt:\n//   difficulty -> (shield) -> armour -> resistance -> enchant protection -> absorption -> health\n\nimport net.minecraft.client.Minecraft;\nimport net.minecraft.client.player.LocalPlayer;\nimport net.minecraft.core.Holder;\nimport net.minecraft.core.Registry;\nimport net.minecraft.core.component.DataComponents;\nimport net.minecraft.core.registries.Registries;\nimport net.minecraft.tags.DamageTypeTags;\nimport net.minecraft.util.Mth;\nimport net.minecraft.world.Difficulty;\nimport net.minecraft.world.InteractionHand;\nimport net.minecraft.world.damagesource.CombatRules;\nimport net.minecraft.world.damagesource.DamageSource;\nimport net.minecraft.world.effect.MobEffectInstance;\nimport net.minecraft.world.effect.MobEffects;\nimport net.minecraft.world.entity.EquipmentSlot;\nimport net.minecraft.world.entity.ai.attributes.Attributes;\nimport net.minecraft.world.item.ItemStack;\nimport net.minecraft.world.item.component.DeathProtection;\nimport net.minecraft.world.item.enchantment.Enchantment;\nimport net.minecraft.world.item.enchantment.EnchantmentHelper;\nimport net.minecraft.world.item.enchantment.Enchantments;\n\npublic final class BlastEstimate {\n\n    public record Result(float healthLost, float absorptionLost,\n                        float finalHealth, boolean lethal, boolean totemSaves) {}\n\n    private static final EquipmentSlot[] ARMOR = {\n        EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET\n    };\n\n    /** rawDamage = the pre-mitigation explosion damage. Returns null if no local player. */\n    public static Result estimate(float rawDamage) {\n        Minecraft mc = Minecraft.getInstance();\n        LocalPlayer p = mc.player;\n        if (p == null || mc.level == null) return null;\n\n        // Real DamageSource, built from the client's synced DAMAGE_TYPE registry.\n        // (null, null) -> DamageTypes.EXPLOSION; pass entities for PLAYER_EXPLOSION.\n        DamageSource src = mc.level.damageSources().explosion(null, null);\n\n        if (p.getAbilities().invulnerable\n                && !src.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {\n            return new Result(0, 0, p.getHealth(), false, false);\n        }\n\n        float dmg = rawDamage;\n\n        // 1. difficulty scaling (explosion/player_explosion are scaling = \"always\")\n        if (src.scalesWithDifficulty()) {\n            Difficulty d = mc.level.getDifficulty();\n            if (d == Difficulty.PEACEFUL)   dmg = 0.0F;\n            else if (d == Difficulty.EASY)  dmg = Math.min(dmg / 2.0F + 1.0F, dmg);\n            else if (d == Difficulty.HARD)  dmg = dmg * 3.0F / 2.0F;\n        }\n\n        // 2. armour (explosion is NOT in bypasses_armor). getWeaponItem() is null for\n        //    explosions, so CombatRules' ServerLevel branch is skipped on both sides.\n        if (!src.is(DamageTypeTags.BYPASSES_ARMOR)) {\n            dmg = CombatRules.getDamageAfterAbsorb(\n                p, dmg, src,\n                p.getArmorValue(),\n                (float) p.getAttributeValue(Attributes.ARMOR_TOUGHNESS));\n        }\n\n        // 3. resistance — exact arithmetic from LivingEntity.getDamageAfterMagicAbsorb\n        if (!src.is(DamageTypeTags.BYPASSES_EFFECTS)\n                && p.hasEffect(MobEffects.RESISTANCE)\n                && !src.is(DamageTypeTags.BYPASSES_RESISTANCE)) {\n            MobEffectInstance inst = p.getEffect(MobEffects.RESISTANCE);\n            if (inst != null) {\n                int absorbValue = (inst.getAmplifier() + 1) * 5;\n                dmg = Math.max(dmg * (25 - absorbValue) / 25.0F, 0.0F);\n            }\n        }\n\n        // 4. enchantment protection. EnchantmentHelper.getDamageProtection needs a\n        //    ServerLevel, so sum EPF off the worn stacks: Protection +1/level,\n        //    Blast Protection +2/level (from the shipped enchantment JSON), then reuse\n        //    the vanilla clamp/divider. CombatRules clamps EPF to 20 => max 80% cut.\n        if (dmg > 0.0F && !src.is(DamageTypeTags.BYPASSES_ENCHANTMENTS)) {\n            Registry<Enchantment> reg =\n                mc.level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);\n            Holder<Enchantment> prot  = reg.getOrThrow(Enchantments.PROTECTION);\n            Holder<Enchantment> blast = reg.getOrThrow(Enchantments.BLAST_PROTECTION);\n            boolean isBlast = src.is(DamageTypeTags.IS_EXPLOSION)\n                           && !src.is(DamageTypeTags.BYPASSES_INVULNERABILITY);\n            float epf = 0.0F;\n            for (EquipmentSlot slot : ARMOR) {\n                ItemStack st = p.getItemBySlot(slot);\n                epf += EnchantmentHelper.getItemEnchantmentLevel(prot, st) * 1.0F;\n                if (isBlast) {\n                    epf += EnchantmentHelper.getItemEnchantmentLevel(blast, st) * 2.0F;\n                }\n            }\n            if (epf > 0.0F) dmg = CombatRules.getDamageAfterMagicAbsorb(dmg, epf);\n        }\n\n        // 5. absorption soaks first (Player.getAbsorptionAmount is synched data)\n        float absorption = p.getAbsorptionAmount();\n        float toHealth   = Math.max(dmg - absorption, 0.0F);\n        float absorbed   = dmg - toHealth;\n\n        float health      = p.getHealth();\n        float finalHealth = Mth.clamp(health - toHealth, 0.0F, p.getMaxHealth());\n        boolean lethal    = finalHealth <= 0.0F;\n\n        // 6. totem: DEATH_PROTECTION component in either hand, unless the source\n        //    bypasses invulnerability. Item identity is not what vanilla checks.\n        boolean totem = false;\n        if (lethal && !src.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {\n            for (InteractionHand hand : InteractionHand.values()) {\n                DeathProtection dp =\n                    p.getItemInHand(hand).get(DataComponents.DEATH_PROTECTION);\n                if (dp != null) { totem = true; break; }\n            }\n        }\n\n        // Caveat: if p.invulnerableTime > 10 the server applies only\n        // (dmg - lastHurt), and lastHurt is never synced, so treat the value\n        // below as an upper bound in that window.\n        return new Result(health - finalHealth, absorbed, finalHealth, lethal, totem);\n    }\n}"
+}

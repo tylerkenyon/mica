@@ -1,0 +1,412 @@
+{
+ "area": "Minecraft 26.2 (Mojang official mappings) — item/block identity, BlockState property + block tests, client Level reads, LivingEntity.swing, BlockPos/Direction math, BlockHitResult/HitResult, and local client chat. Every signature below was dumped with javap from ~/.gradle/caches/fabric-loom/26.2/{minecraft-common,minecraft-client-only}.jar in this run, and the whole surface was additionally compile-verified with javac (JDK 25) — positive probes compiled clean, and each \"does not exist\" claim was proven by a deliberate failing compile.",
+ "signatures": [
+  {
+   "fqcn": "net.minecraft.world.item.Items",
+   "member": "public static final net.minecraft.world.item.Item RESPAWN_ANCHOR;",
+   "verified": true,
+   "notes": "javap -p, line 1144."
+  },
+  {
+   "fqcn": "net.minecraft.world.item.Items",
+   "member": "public static final net.minecraft.world.item.Item GLOWSTONE;",
+   "verified": true,
+   "notes": "javap -p, line 348. Note a separate GLOWSTONE_DUST field also exists (line 853) — GLOWSTONE is the block item that charges an anchor, GLOWSTONE_DUST is not."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.Blocks",
+   "member": "public static final net.minecraft.world.level.block.Block RESPAWN_ANCHOR;",
+   "verified": true,
+   "notes": "javap -p, line 722. Blocks.GLOWSTONE also present (line 269)."
+  },
+  {
+   "fqcn": "net.minecraft.world.item.ItemStack",
+   "member": "public boolean isEmpty();",
+   "verified": true,
+   "notes": "Decompiled body: `this == EMPTY || this.item.value() == Items.AIR || this.count <= 0`."
+  },
+  {
+   "fqcn": "net.minecraft.world.item.ItemStack",
+   "member": "public net.minecraft.world.item.Item getItem();",
+   "verified": true,
+   "notes": "Decompiled body: `return this.typeHolder().value()`. Returns Items.AIR for an empty stack (typeHolder() substitutes AIR when isEmpty())."
+  },
+  {
+   "fqcn": "net.minecraft.world.item.ItemStack",
+   "member": "public int getCount();",
+   "verified": true,
+   "notes": "Decompiled body: `this.isEmpty() ? 0 : this.count`. There is also `public int count()` which just delegates to getCount() (from the ItemInstance interface)."
+  },
+  {
+   "fqcn": "net.minecraft.world.item.ItemStack",
+   "member": "public boolean is(java.util.function.Predicate<net.minecraft.core.Holder<net.minecraft.world.item.Item>>);",
+   "verified": true,
+   "notes": "The ONLY is(...) overload DECLARED on ItemStack itself. The other five come from the TypedInstance interface (below)."
+  },
+  {
+   "fqcn": "net.minecraft.world.item.ItemStack",
+   "member": "public net.minecraft.core.Holder<net.minecraft.world.item.Item> typeHolder();",
+   "verified": true,
+   "notes": "Replaces the old getItemHolder(). Implements TypedInstance<Item>.typeHolder()."
+  },
+  {
+   "fqcn": "net.minecraft.core.TypedInstance",
+   "member": "public default boolean is(T);",
+   "verified": true,
+   "notes": "KEY FINDING. ItemStack implements ItemInstance -> TypedInstance<Item>, so `stack.is(Items.GLOWSTONE)` compiles and is the simplest verified identity test. Body: `this.typeHolder().value() == rawType`. BlockState implements TypedInstance<Block>, so `state.is(Blocks.RESPAWN_ANCHOR)` compiles the same way. FluidState implements TypedInstance<Fluid> too."
+  },
+  {
+   "fqcn": "net.minecraft.core.TypedInstance",
+   "member": "public default boolean is(net.minecraft.tags.TagKey<T>);",
+   "verified": true,
+   "notes": "`stack.is(ItemTags.SWORDS)` COMPILES — compile-verified. The project note claiming you must write `stack.is(h -> h.is(ItemTags.SWORDS))` is outdated; the lambda works but is unnecessary. Body: `this.typeHolder().is(tag)`."
+  },
+  {
+   "fqcn": "net.minecraft.core.TypedInstance",
+   "member": "public default boolean is(net.minecraft.core.HolderSet<T>);",
+   "verified": true,
+   "notes": "Body: `set.contains(this.typeHolder())`."
+  },
+  {
+   "fqcn": "net.minecraft.core.TypedInstance",
+   "member": "public default boolean is(net.minecraft.core.Holder<T>);",
+   "verified": true,
+   "notes": "Body: `this.typeHolder() == type` — REFERENCE equality on the Holder, not on the value. Do not pass a freshly-built Holder.direct(...)."
+  },
+  {
+   "fqcn": "net.minecraft.core.TypedInstance",
+   "member": "public default boolean is(net.minecraft.resources.ResourceKey<T>);",
+   "verified": true,
+   "notes": "Body: `this.typeHolder().is(type)`."
+  },
+  {
+   "fqcn": "net.minecraft.world.item.ItemStack",
+   "member": "public boolean isIn(net.minecraft.tags.TagKey<net.minecraft.world.item.Item>);",
+   "verified": false,
+   "notes": "DOES NOT EXIST. Compile probe: `error: cannot find symbol / symbol: method isIn(TagKey<Item>) / location: variable s of type ItemStack`. The project note is correct that isIn is gone; use the inherited is(TagKey<Item>) instead."
+  },
+  {
+   "fqcn": "net.minecraft.core.Holder",
+   "member": "public abstract boolean is(net.minecraft.tags.TagKey<T>);",
+   "verified": true,
+   "notes": "Holder's full is(...) set on 26.2: is(net.minecraft.resources.Identifier), is(ResourceKey<T>), is(Predicate<ResourceKey<T>>), is(TagKey<T>), is(Holder<T>). Note the first takes Identifier, NOT ResourceLocation. Also: `public abstract T value();`"
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.state.BlockState",
+   "member": "public class net.minecraft.world.level.block.state.BlockState extends net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase",
+   "verified": true,
+   "notes": "BlockState itself declares almost nothing (CODEC, ctor, asState()). Everything you call lives on BlockBehaviour$BlockStateBase or on StateHolder."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.state.StateHolder",
+   "member": "public <T extends java.lang.Comparable<T>> T getValue(net.minecraft.world.level.block.state.properties.Property<T>);",
+   "verified": true,
+   "notes": "Declaring class is StateHolder<O,S>, the superclass of BlockStateBase. Also present: getOptionalValue(Property<T>) -> Optional<T>, getValueOrElse(Property<T>, T), hasProperty(Property<?>), setValue/trySetValue, cycle(Property<T>)."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase",
+   "member": "public net.minecraft.world.level.block.Block getBlock();",
+   "verified": true,
+   "notes": "Line 37 of javap -p."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase",
+   "member": "public boolean is(net.minecraft.tags.TagKey<net.minecraft.world.level.block.Block>, java.util.function.Predicate<net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase>);",
+   "verified": true,
+   "notes": "The only is(...) DECLARED on BlockStateBase — a 2-arg tag+predicate form. javac's candidate dump for a bad `state.is(...)` call listed exactly the five single-arg TypedInstance<Block> defaults: is(TagKey<Block>), is(HolderSet<Block>), is(Block), is(Holder<Block>), is(ResourceKey<Block>). There is no is(Block, Block) / varargs form."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase",
+   "member": "public boolean isAir();",
+   "verified": true,
+   "notes": "Line 49. Also `public net.minecraft.world.level.material.FluidState getFluidState();` (line 114) — the no-arg form on the state itself, distinct from Level.getFluidState(BlockPos)."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.Level",
+   "member": "public net.minecraft.world.level.block.state.BlockState getBlockState(net.minecraft.core.BlockPos);",
+   "verified": true,
+   "notes": "Concrete on Level. ClientLevel does NOT override it (ClientLevel extends Level implements BlockAndTintGetter, CacheSlot$Cleaner<ClientLevel>)."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.Level",
+   "member": "public net.minecraft.world.level.material.FluidState getFluidState(net.minecraft.core.BlockPos);",
+   "verified": true,
+   "notes": "Concrete on Level, not overridden by ClientLevel. FluidState.isEmpty() / isSource() / getType() verified."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.LevelReader",
+   "member": "public default boolean isEmptyBlock(net.minecraft.core.BlockPos);",
+   "verified": true,
+   "notes": "STILL EXISTS on 26.2, but as a default on LevelReader, not on BlockGetter. Reachable from ClientLevel via Level -> LevelAccessor -> CommonLevelAccessor -> LevelReader; compile-verified `clientLevel.isEmptyBlock(pos)`. LevelReader also has `public default boolean isWaterAt(net.minecraft.core.BlockPos);`"
+  },
+  {
+   "fqcn": "net.minecraft.world.level.Level",
+   "member": "public boolean isLoaded(net.minecraft.core.BlockPos);",
+   "verified": true,
+   "notes": "Use this before reading a BlockState near the render-distance edge on the client; getBlockState on an unloaded chunk returns air rather than throwing."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.Level",
+   "member": "public abstract net.minecraft.world.attribute.EnvironmentAttributeSystem environmentAttributes();",
+   "verified": true,
+   "notes": "NEW in 26.2. This is the client-visible route to dimension-behaviour flags that used to be hardcoded. Compile-verified on ClientLevel."
+  },
+  {
+   "fqcn": "net.minecraft.world.attribute.EnvironmentAttributes",
+   "member": "public static final net.minecraft.world.attribute.EnvironmentAttribute<java.lang.Boolean> RESPAWN_ANCHOR_WORKS;",
+   "verified": true,
+   "notes": "Line 35 of javap -p. This is the data-driven replacement for the old 'anchor only works in the Nether' hardcode."
+  },
+  {
+   "fqcn": "net.minecraft.world.attribute.EnvironmentAttributeReader",
+   "member": "public default <Value> Value getValue(net.minecraft.world.attribute.EnvironmentAttribute<Value>, net.minecraft.core.BlockPos);",
+   "verified": true,
+   "notes": "Inherited by EnvironmentAttributeSystem. Compile-verified: `level.environmentAttributes().getValue(EnvironmentAttributes.RESPAWN_ANCHOR_WORKS, pos)` on a ClientLevel returns Boolean. Overloads also take Vec3, and (Vec3, SpatialAttributeInterpolator)."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.RespawnAnchorBlock",
+   "member": "public static boolean canSetSpawn(net.minecraft.server.level.ServerLevel, net.minecraft.core.BlockPos);",
+   "verified": true,
+   "notes": "SERVER-ONLY — takes ServerLevel, uncallable from client code. Decompiled body is a one-liner: `level.environmentAttributes().getValue(EnvironmentAttributes.RESPAWN_ANCHOR_WORKS, pos)`. Client-visible alternative: call exactly that on your ClientLevel (verified above)."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.RespawnAnchorBlock",
+   "member": "public static final net.minecraft.world.level.block.state.properties.IntegerProperty CHARGE;",
+   "verified": true,
+   "notes": "Use with state.getValue(RespawnAnchorBlock.CHARGE) -> Integer (auto-unboxes to int; compile-verified). MIN_CHARGES and MAX_CHARGES int constants also present."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.RespawnAnchorBlock",
+   "member": "public static int getScaledChargeLevel(net.minecraft.world.level.block.state.BlockState, int);",
+   "verified": true,
+   "notes": "Pure function, client-safe."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.RespawnAnchorBlock",
+   "member": "public static void charge(net.minecraft.world.entity.Entity, net.minecraft.world.level.Level, net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState);",
+   "verified": true,
+   "notes": "Takes plain Level so it COMPILES client-side, but the decompiled body does level.setBlock(...) + level.gameEvent(...) + level.playSound(...). Calling it from a client module produces a pure client-side desync, not a real charge. Send a real use-item interaction instead."
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public void swing(net.minecraft.world.InteractionHand);",
+   "verified": true,
+   "notes": "Declared on LivingEntity. Neither Player nor LocalPlayer overrides swing — LocalPlayer inherits both overloads (compile-verified on a LocalPlayer receiver)."
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public void swing(net.minecraft.world.InteractionHand, boolean);",
+   "verified": true,
+   "notes": "Second overload confirmed present and callable on LocalPlayer. (A first compile attempt reported 'required: InteractionHand' only — that was a cascade from org.jspecify.annotations.Nullable missing off the probe classpath, not a real absence. With jspecify on the classpath both overloads resolve.)"
+  },
+  {
+   "fqcn": "net.minecraft.world.InteractionHand",
+   "member": "public static final net.minecraft.world.InteractionHand MAIN_HAND;",
+   "verified": true,
+   "notes": "Enum, still net.minecraft.world.InteractionHand. OFF_HAND present. Also `public net.minecraft.world.entity.EquipmentSlot asEquipmentSlot();`"
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public net.minecraft.world.item.ItemStack getItemInHand(net.minecraft.world.InteractionHand);",
+   "verified": true,
+   "notes": "Compile-verified on LocalPlayer."
+  },
+  {
+   "fqcn": "net.minecraft.core.BlockPos",
+   "member": "public net.minecraft.core.BlockPos relative(net.minecraft.core.Direction);",
+   "verified": true,
+   "notes": "Also relative(Direction, int) and relative(Direction$Axis, int). This is the method to use where 1.21 code wrote pos.offset(direction)."
+  },
+  {
+   "fqcn": "net.minecraft.core.BlockPos",
+   "member": "public net.minecraft.core.BlockPos above();",
+   "verified": true,
+   "notes": "above(int) also present, plus below/north/south/east/west in both arities, and atY(int)."
+  },
+  {
+   "fqcn": "net.minecraft.core.BlockPos",
+   "member": "public net.minecraft.core.BlockPos offset(int, int, int);",
+   "verified": true,
+   "notes": "Instance offset comes in exactly two forms: offset(int,int,int) and offset(net.minecraft.core.Vec3i). There are also two STATIC packed-long forms: `public static long offset(long, net.minecraft.core.Direction);` and `public static long offset(long, int, int, int);`"
+  },
+  {
+   "fqcn": "net.minecraft.core.BlockPos",
+   "member": "public net.minecraft.core.BlockPos offset(net.minecraft.core.Direction);",
+   "verified": false,
+   "notes": "DOES NOT EXIST as an instance method. Compile probe: `error: incompatible types: Direction cannot be converted to Vec3i` — javac fell through to offset(Vec3i). Use relative(Direction)."
+  },
+  {
+   "fqcn": "net.minecraft.core.BlockPos",
+   "member": "public net.minecraft.core.BlockPos immutable();",
+   "verified": true,
+   "notes": "mutable() -> BlockPos$MutableBlockPos also present."
+  },
+  {
+   "fqcn": "net.minecraft.core.BlockPos",
+   "member": "public static net.minecraft.core.BlockPos containing(double, double, double);",
+   "verified": true,
+   "notes": "Also `public static net.minecraft.core.BlockPos containing(net.minecraft.core.Position);` (Vec3 implements Position) and `public static net.minecraft.core.BlockPos of(long);`"
+  },
+  {
+   "fqcn": "net.minecraft.core.Direction",
+   "member": "public net.minecraft.core.Direction getOpposite();",
+   "verified": true,
+   "notes": "Unchanged."
+  },
+  {
+   "fqcn": "net.minecraft.core.Direction",
+   "member": "public net.minecraft.core.Vec3i getNormal();",
+   "verified": false,
+   "notes": "DOES NOT EXIST on 26.2. Compile probe: `error: cannot find symbol / symbol: method getNormal() / location: variable d of type Direction`. The private field is still called `normal` but there is no getter under that name."
+  },
+  {
+   "fqcn": "net.minecraft.core.Direction",
+   "member": "public net.minecraft.core.Vec3i getUnitVec3i();",
+   "verified": true,
+   "notes": "THIS is the 26.2 replacement for getNormal(). Siblings: `public net.minecraft.world.phys.Vec3 getUnitVec3();`, `public org.joml.Vector3fc getUnitVec3f();`, `public org.joml.Vector3f step();`, and `getStepX()` / `getStepY()` / `getStepZ()` returning int."
+  },
+  {
+   "fqcn": "net.minecraft.world.phys.BlockHitResult",
+   "member": "public net.minecraft.core.BlockPos getBlockPos();",
+   "verified": true,
+   "notes": "Unchanged."
+  },
+  {
+   "fqcn": "net.minecraft.world.phys.BlockHitResult",
+   "member": "public net.minecraft.core.Direction getDirection();",
+   "verified": true,
+   "notes": "Unchanged. withDirection(Direction) and withPosition(BlockPos) also present."
+  },
+  {
+   "fqcn": "net.minecraft.world.phys.BlockHitResult",
+   "member": "public net.minecraft.world.phys.HitResult$Type getType();",
+   "verified": true,
+   "notes": "Overrides the abstract HitResult.getType()."
+  },
+  {
+   "fqcn": "net.minecraft.world.phys.BlockHitResult",
+   "member": "public boolean isInside();",
+   "verified": true,
+   "notes": "Unchanged. NEW on 26.2: `public boolean isWorldBorderHit();` and `public net.minecraft.world.phys.BlockHitResult hitBorder();`, plus a 5-arg ctor (Vec3, Direction, BlockPos, boolean, boolean) alongside the familiar 4-arg one, and static miss(Vec3, Direction, BlockPos)."
+  },
+  {
+   "fqcn": "net.minecraft.world.phys.HitResult",
+   "member": "public net.minecraft.world.phys.Vec3 getLocation();",
+   "verified": true,
+   "notes": "On the abstract base HitResult, not on BlockHitResult. Also `public double distanceTo(net.minecraft.world.entity.Entity);`"
+  },
+  {
+   "fqcn": "net.minecraft.world.phys.HitResult$Type",
+   "member": "public static final net.minecraft.world.phys.HitResult$Type MISS;",
+   "verified": true,
+   "notes": "Exactly three constants, unchanged: MISS, BLOCK, ENTITY."
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "public final net.minecraft.client.gui.Gui gui;",
+   "verified": true,
+   "notes": "Public field. Also verified public fields: `public net.minecraft.client.player.LocalPlayer player;`, `public net.minecraft.client.multiplayer.ClientLevel level;`, `public net.minecraft.world.phys.HitResult hitResult;`, and `public static net.minecraft.client.Minecraft getInstance();`"
+  },
+  {
+   "fqcn": "net.minecraft.client.gui.Gui",
+   "member": "public final net.minecraft.client.gui.Hud hud;",
+   "verified": true,
+   "notes": "NEW indirection in 26.2. Gui was split: Gui is now the screen/overlay/pause owner, and the actual HUD moved to net.minecraft.client.gui.Hud."
+  },
+  {
+   "fqcn": "net.minecraft.client.gui.Gui",
+   "member": "public net.minecraft.client.gui.components.ChatComponent getChat();",
+   "verified": false,
+   "notes": "DOES NOT EXIST on Gui any more. Compile probe: `error: cannot find symbol / symbol: method getChat() / location: variable gui of type Gui`. It moved to Hud — go through mc.gui.hud.getChat()."
+  },
+  {
+   "fqcn": "net.minecraft.client.gui.Hud",
+   "member": "public net.minecraft.client.gui.components.ChatComponent getChat();",
+   "verified": true,
+   "notes": "Line 150 of javap -p on Hud. This is where Gui.getChat() went."
+  },
+  {
+   "fqcn": "net.minecraft.client.gui.components.ChatComponent",
+   "member": "public void addClientSystemMessage(net.minecraft.network.chat.Component);",
+   "verified": true,
+   "notes": "THE call for a mod printing its own line into the local chat on 26.2. Does not touch the chat log and is not gated on the player's chat settings. Compile-verified end to end: Minecraft.getInstance().gui.hud.getChat().addClientSystemMessage(Component.literal(msg))."
+  },
+  {
+   "fqcn": "net.minecraft.client.gui.components.ChatComponent",
+   "member": "public void addServerSystemMessage(net.minecraft.network.chat.Component);",
+   "verified": true,
+   "notes": "For messages that genuinely came from the server; these get logged. Third public adder: `public void addPlayerMessage(net.minecraft.network.chat.Component, net.minecraft.network.chat.MessageSignature, net.minecraft.client.multiplayer.chat.GuiMessageTag);`"
+  },
+  {
+   "fqcn": "net.minecraft.client.gui.components.ChatComponent",
+   "member": "public void addMessage(net.minecraft.network.chat.Component);",
+   "verified": false,
+   "notes": "DOES NOT EXIST. Compile probe: `error: method addMessage in class ChatComponent cannot be applied to given types; required: Component,MessageSignature,GuiMessageSource,GuiMessageTag`. The only addMessage is that private 4-arg one. This is the single most likely breakage for chat code ported from 1.21."
+  },
+  {
+   "fqcn": "net.minecraft.client.gui.Gui",
+   "member": "public net.minecraft.client.multiplayer.chat.ChatListener chatListener();",
+   "verified": true,
+   "notes": "Accessor method (not a field) on Gui."
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.chat.ChatListener",
+   "member": "public void handleSystemMessage(net.minecraft.network.chat.Component, boolean);",
+   "verified": true,
+   "notes": "Second param is `remote`, NOT `overlay`. Decompiled: remote=true -> addServerSystemMessage + logSystemMessage; remote=false -> addClientSystemMessage. Whole method is wrapped in `receiver.chatAbilities().canReceiveSystemMessages()`, so it can silently drop your message. Separate `public void handleOverlay(net.minecraft.network.chat.Component);` handles the action bar."
+  },
+  {
+   "fqcn": "net.minecraft.client.player.LocalPlayer",
+   "member": "public void sendSystemMessage(net.minecraft.network.chat.Component);",
+   "verified": true,
+   "notes": "Compiles and works, but decompiled body is `this.minecraft.gui.chatListener().handleSystemMessage(message, true)` — remote=TRUE, so your mod's own line is recorded as a server message in the chat log and is suppressed if canReceiveSystemMessages() is false. Prefer gui.hud.getChat().addClientSystemMessage(...) for mod output. Note the base net.minecraft.world.entity.player.Player.sendSystemMessage(Component) has an EMPTY body — calling it on a Player-typed reference silently does nothing."
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public void displayClientMessage(net.minecraft.network.chat.Component, boolean);",
+   "verified": false,
+   "notes": "DOES NOT EXIST on 26.2, on Player or LocalPlayer. Compile probe: `error: cannot find symbol / symbol: method displayClientMessage(MutableComponent,boolean)`. Replaced by sendSystemMessage(Component) + sendOverlayMessage(Component)."
+  },
+  {
+   "fqcn": "net.minecraft.network.chat.Component",
+   "member": "public static net.minecraft.network.chat.MutableComponent literal(java.lang.String);",
+   "verified": true,
+   "notes": "Unchanged. nullToEmpty(String), translatable(String), empty() also present."
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.chat.ChatAbilities",
+   "member": "public boolean canReceiveSystemMessages();",
+   "verified": true,
+   "notes": "Reached via LocalPlayer.chatAbilities(). This is the gate that can swallow a handleSystemMessage / sendSystemMessage call."
+  },
+  {
+   "fqcn": "net.minecraft.resources.ResourceLocation",
+   "member": "class net.minecraft.resources.ResourceLocation",
+   "verified": false,
+   "notes": "DOES NOT EXIST on 26.2. Compile probe: `error: cannot find symbol / symbol: class ResourceLocation / location: package net.minecraft.resources`. Renamed to net.minecraft.resources.Identifier (present in minecraft-common.jar, and it is what Holder.is(...) and ChatComponent's id constants take)."
+  }
+ ],
+ "gotchas": [
+  "ItemStack.is(...) has SIX overloads on 26.2, five of them inherited defaults you will not see in a javap dump of ItemStack. javac's candidate list for a bad call is authoritative: TypedInstance.is(TagKey<Item>), is(HolderSet<Item>), is(Item), is(Holder<Item>), is(ResourceKey<Item>), and ItemStack.is(Predicate<Holder<Item>>). ItemStack implements ItemInstance -> TypedInstance<Item>, which is where the first five come from.",
+  "Simplest verified way to test 'this stack is Items.GLOWSTONE' is `stack.is(Items.GLOWSTONE)` — compile-verified. `stack.getItem() == Items.GLOWSTONE` is equally valid (getItem() is literally typeHolder().value()). The lambda form `stack.is(h -> h.value() == Items.GLOWSTONE)` also compiles but buys nothing.",
+  "The project note is HALF WRONG. isIn(TagKey) is indeed gone, but `stack.is(ItemTags.SWORDS)` compiles directly via TypedInstance.is(TagKey<T>) — compile-verified. The `stack.is(h -> h.is(ItemTags.SWORDS))` workaround is unnecessary; keep the lambda form only when you need to combine several holder predicates in one pass.",
+  "TypedInstance.is(Holder<T>) compares Holder REFERENCES (`this.typeHolder() == type`), not values. Passing a Holder you constructed yourself will always be false. is(T) and is(ResourceKey<T>) compare by value/key and are safe.",
+  "Direction.getNormal() is gone. Use getUnitVec3i() for the Vec3i, getUnitVec3() for a Vec3, getUnitVec3f() for a JOML Vector3fc, or getStepX/Y/Z() for the ints. Pre-26.2 code calling getNormal() will not compile.",
+  "BlockPos.offset(Direction) is gone as an instance method — only offset(int,int,int) and offset(Vec3i) remain, so `pos.offset(dir)` fails with a confusing 'Direction cannot be converted to Vec3i' rather than 'no such method'. Use pos.relative(dir). The static long forms BlockPos.offset(long, Direction) and offset(long,int,int,int) DO take a Direction — easy to misread as proof the instance form still exists.",
+  "Gui was split in 26.2. Minecraft.gui is still there, but the HUD moved into a new net.minecraft.client.gui.Hud reachable via the public final field Gui.hud. Gui.getChat() no longer exists; the chain is Minecraft.getInstance().gui.hud.getChat().",
+  "ChatComponent.addMessage(Component) no longer exists — the only addMessage is private and takes (Component, MessageSignature, GuiMessageSource, GuiMessageTag). For a mod printing its own line, call addClientSystemMessage(Component). addServerSystemMessage(Component) is for genuine server traffic and additionally writes to the chat log / report context.",
+  "LocalPlayer.sendSystemMessage(Component) compiles and works, but it forwards with remote=TRUE (`chatListener().handleSystemMessage(message, true)`), so your mod's output is filed as a server message and gets logged. Worse, handleSystemMessage is entirely wrapped in `receiver.chatAbilities().canReceiveSystemMessages()` — a player with system messages off will never see your line, with no error. addClientSystemMessage bypasses both.",
+  "ChatListener.handleSystemMessage(Component, boolean)'s boolean is `remote`, not `overlay` as the older signature's second parameter suggested. Passing true routes to chat-as-if-from-server; passing false routes to addClientSystemMessage. The action bar is a separate method, handleOverlay(Component).",
+  "net.minecraft.world.entity.player.Player.sendSystemMessage(Component) has an EMPTY body on 26.2 (verified in the decompiled source). If your code holds a Player-typed reference rather than LocalPlayer, the call silently vanishes.",
+  "Player.displayClientMessage(Component, boolean) is gone entirely, on both Player and LocalPlayer.",
+  "net.minecraft.resources.ResourceLocation no longer exists; it is net.minecraft.resources.Identifier. This bites indirectly — Holder.is(Identifier) and the Identifier constants on ChatComponent will look like unrelated errors if you still import ResourceLocation.",
+  "isEmptyBlock(BlockPos) survives, but it is a default on LevelReader, NOT on BlockGetter. BlockGetter only declares getBlockState/getFluidState/getBlockEntity. If you type a parameter as BlockGetter (a common narrowing for helper methods) isEmptyBlock will not resolve — take LevelReader or ClientLevel.",
+  "RespawnAnchorBlock.canSetSpawn(ServerLevel, BlockPos) is SERVER-ONLY and uncallable from client code. Its entire body on 26.2 is `level.environmentAttributes().getValue(EnvironmentAttributes.RESPAWN_ANCHOR_WORKS, pos)`, and Level.environmentAttributes() is available on ClientLevel — so the client can reproduce the check exactly. Do NOT reimplement the old hardcoded 'dimension == NETHER' test; 26.2 made this data-driven per dimension, so a datapack dimension can flip it.",
+  "RespawnAnchorBlock.charge(Entity, Level, BlockPos, BlockState) takes plain Level, so it compiles in client code — but it calls level.setBlock / gameEvent / playSound. From a client module it only produces a local desync, never a real charge. Send a genuine interaction packet instead.",
+  "Other server-only surface adjacent to this module: ItemStack.hurtAndBreak(int, ServerLevel, ServerPlayer, Consumer<Item>), and BlockStateBase.tick / randomTick / spawnAfterBreak / onExplosionHit / affectNeighborsAfterRemoval all take ServerLevel. There is no client-side equivalent for these; a client module must predict rather than call them.",
+  "BlockState declares almost nothing itself. getValue(Property<T>) lives on StateHolder, and getBlock() / isAir() / getFluidState() / the 2-arg is(TagKey, Predicate) live on BlockBehaviour$BlockStateBase. `javap -p net.minecraft.world.level.block.state.BlockState` is nearly empty and will make you think these methods are gone — dump BlockBehaviour$BlockStateBase and StateHolder instead.",
+  "When probing 26.2 with javac, put org.jspecify:jspecify and com.mojang:brigadier on the classpath. Without jspecify, javac fails with 'cannot access Nullable' and then reports a TRUNCATED overload set for the affected class — this made LivingEntity.swing(InteractionHand, boolean) look like it did not exist. Both swing overloads are real.",
+  "Items.GLOWSTONE and Items.GLOWSTONE_DUST are both present. The anchor is charged with GLOWSTONE (the block item); GLOWSTONE_DUST will fail silently in an item check."
+ ],
+ "usage": "// Compile-verified against minecraft-common.jar + minecraft-client-only.jar (26.2) with JDK 25 javac.\n// Every symbol below appeared in javap/javac output in this run.\nimport net.minecraft.client.Minecraft;\nimport net.minecraft.client.multiplayer.ClientLevel;\nimport net.minecraft.client.player.LocalPlayer;\nimport net.minecraft.core.BlockPos;\nimport net.minecraft.core.Direction;\nimport net.minecraft.network.chat.Component;\nimport net.minecraft.world.InteractionHand;\nimport net.minecraft.world.attribute.EnvironmentAttributes;\nimport net.minecraft.world.item.ItemStack;\nimport net.minecraft.world.item.Items;\nimport net.minecraft.world.level.block.Blocks;\nimport net.minecraft.world.level.block.RespawnAnchorBlock;\nimport net.minecraft.world.level.block.state.BlockState;\nimport net.minecraft.world.phys.BlockHitResult;\nimport net.minecraft.world.phys.HitResult;\n\npublic final class AnchorProbe {\n    public static void tick() {\n        Minecraft mc = Minecraft.getInstance();\n        LocalPlayer me = mc.player;\n        ClientLevel level = mc.level;\n        if (me == null || level == null) return;\n\n        if (!(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) return;\n\n        BlockPos anchorPos = hit.getBlockPos();\n        BlockState state = level.getBlockState(anchorPos);\n        if (!state.is(Blocks.RESPAWN_ANCHOR)) return;   // TypedInstance.is(Block)\n\n        // Client-readable stand-in for the ServerLevel-only RespawnAnchorBlock.canSetSpawn(...).\n        boolean anchorWorksHere =\n            level.environmentAttributes().getValue(EnvironmentAttributes.RESPAWN_ANCHOR_WORKS, anchorPos);\n\n        int charge = state.getValue(RespawnAnchorBlock.CHARGE);   // StateHolder.getValue -> Integer\n\n        ItemStack held = me.getItemInHand(InteractionHand.MAIN_HAND);\n        boolean holdingGlowstone = !held.isEmpty() && held.is(Items.GLOWSTONE);   // TypedInstance.is(Item)\n\n        BlockPos placeAt = anchorPos.relative(hit.getDirection());   // NOT offset(Direction)\n        boolean free = level.isEmptyBlock(placeAt) && level.getFluidState(placeAt).isEmpty();\n        Direction back = hit.getDirection().getOpposite();\n\n        if (holdingGlowstone && free && charge < RespawnAnchorBlock.MAX_CHARGES) {\n            me.swing(InteractionHand.MAIN_HAND);   // swing(InteractionHand, boolean) also exists\n        }\n\n        // Local chat on 26.2: Minecraft -> gui -> hud -> getChat() -> addClientSystemMessage.\n        // Not gui.getChat() (gone), not chat.addMessage(Component) (gone).\n        mc.gui.hud.getChat().addClientSystemMessage(Component.literal(\n            \"anchor charge=\" + charge + \" works=\" + anchorWorksHere\n                + \" place=\" + placeAt.above().immutable() + \" back=\" + back\n                + \" scaled=\" + RespawnAnchorBlock.getScaledChargeLevel(state, 15)));\n    }\n}"
+}

@@ -1,0 +1,236 @@
+{
+ "area": "Minecraft 26.2 (Mojang official mappings) explosion damage/knockback formula for client-side self-damage prediction",
+ "signatures": [
+  {
+   "fqcn": "net.minecraft.world.level.ExplosionDamageCalculator",
+   "member": "public float getEntityDamageAmount(net.minecraft.world.level.Explosion, net.minecraft.world.entity.Entity, float);",
+   "verified": true,
+   "notes": "THE damage formula. Body (verified in both vineflower output and javap -c bytecode): float doubleRadius = explosion.radius() * 2.0F; Vec3 center = explosion.center(); double dist = Math.sqrt(entity.distanceToSqr(center)) / doubleRadius; double pow = (1.0 - dist) * exposure; return (float)((pow*pow + pow) / 2.0 * 7.0 * doubleRadius + 1.0); -- Constants 2.0F, 2.0, 7.0, +1.0. Touches ONLY radius()/center() on the Explosion, never level(), so a client stub Explosion would work; it does NOT clamp dist<=1, the caller does."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.ServerExplosion",
+   "member": "public static float getSeenPercent(net.minecraft.world.phys.Vec3, net.minecraft.world.entity.Entity);",
+   "verified": true,
+   "notes": "The exposure/LOS term. PUBLIC STATIC. Moved here in 26.2 -- it is NOT on the Explosion interface any more. Despite the 'Server' class name it is fully client-callable: the only level access is entity.level().clip(...), and Entity.level() returns net.minecraft.world.level.Level. Class file is present in minecraft-common.jar AND minecraft-client.jar."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.BlockGetter",
+   "member": "public default net.minecraft.world.phys.BlockHitResult clip(net.minecraft.world.level.ClipContext);",
+   "verified": true,
+   "notes": "Why getSeenPercent works on a ClientLevel -- clip is a BlockGetter default method, Level implements BlockGetter, ClientLevel extends Level. Bytecode of getSeenPercent invokes it as net/minecraft/world/level/Level.clip."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.ClipContext",
+   "member": "public net.minecraft.world.level.ClipContext(net.minecraft.world.phys.Vec3, net.minecraft.world.phys.Vec3, net.minecraft.world.level.ClipContext$Block, net.minecraft.world.level.ClipContext$Fluid, net.minecraft.world.entity.Entity);",
+   "verified": true,
+   "notes": "getSeenPercent uses exactly this ctor with ClipContext.Block.COLLIDER and ClipContext.Fluid.NONE, from = sample point, to = explosion centre, entity = the target. A ray counts as unobstructed when result.getType() == HitResult.Type.MISS."
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.Entity",
+   "member": "public double distanceToSqr(net.minecraft.world.phys.Vec3);",
+   "verified": true,
+   "notes": "The distance term. Bytecode reads getX()/getY()/getZ(), each of which is a direct getfield on the `position` Vec3 -- i.e. FEET / bottom-centre of the hitbox. Not eye position, not hitbox centre."
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.Entity",
+   "member": "public final net.minecraft.world.phys.Vec3 getEyePosition();",
+   "verified": true,
+   "notes": "Used ONLY for knockback direction (bytecode: new Vec3(getX(), getEyeY(), getZ()); getEyeY() = position.y + eyeHeight). Damage distance does not use it."
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.Entity",
+   "member": "public final net.minecraft.world.phys.AABB getBoundingBox();",
+   "verified": true,
+   "notes": "Input to getSeenPercent's ray grid. AABB.minX/minY/minZ/maxX/maxY/maxZ are public final doubles."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.Explosion",
+   "member": "float radius();",
+   "verified": true,
+   "notes": "Interface method. This IS the power argument, un-doubled -- every formula multiplies by 2.0F internally. Respawn anchor passes 5.0F."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.Explosion",
+   "member": "Vec3 center();",
+   "verified": true,
+   "notes": "Interface method."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.Explosion",
+   "member": "ServerLevel level();",
+   "verified": true,
+   "notes": "SERVER-ONLY RETURN TYPE. This is why the Explosion interface cannot be honestly implemented client-side; a client stub must return null. Also note there is NO static getSeenPercent on this interface in 26.2."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.ServerExplosion",
+   "member": "public net.minecraft.world.level.ServerExplosion(net.minecraft.server.level.ServerLevel, net.minecraft.world.entity.Entity, net.minecraft.world.damagesource.DamageSource, net.minecraft.world.level.ExplosionDamageCalculator, net.minecraft.world.phys.Vec3, float, boolean, net.minecraft.world.level.Explosion$BlockInteraction);",
+   "verified": true,
+   "notes": "SERVER-ONLY: first param is ServerLevel. You cannot instantiate a real explosion on the client."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.ExplosionDamageCalculator",
+   "member": "public float getKnockbackMultiplier(net.minecraft.world.entity.Entity);",
+   "verified": true,
+   "notes": "Default returns 1.0F. SimpleExplosionDamageCalculator returns 0.0F when entity is a Player with abilities.flying, else its Optional<Float> knockbackMultiplier. Respawn anchor uses a plain ExplosionDamageCalculator subclass, so 1.0F."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.ExplosionDamageCalculator",
+   "member": "public boolean shouldDamageEntity(net.minecraft.world.level.Explosion, net.minecraft.world.entity.Entity);",
+   "verified": true,
+   "notes": "Default true. ServerExplosion.hurtEntities skips the whole getSeenPercent raycast when !shouldDamageEntity && knockbackMultiplier == 0.0F (exposure forced to 0.0F)."
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.ai.attributes.Attributes",
+   "member": "public static final net.minecraft.core.Holder<net.minecraft.world.entity.ai.attributes.Attribute> EXPLOSION_KNOCKBACK_RESISTANCE;",
+   "verified": true,
+   "notes": "Knockback term multiplies by (1.0 - value). Read client-side via LivingEntity.getAttributeValue."
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public double getAttributeValue(net.minecraft.core.Holder<net.minecraft.world.entity.ai.attributes.Attribute>);",
+   "verified": true,
+   "notes": "Public, client-callable for the local player."
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.Entity",
+   "member": "public void push(net.minecraft.world.phys.Vec3);",
+   "verified": true,
+   "notes": "How the server applies knockback. Bytecode: isFinite guard, then setDeltaMovement(getDeltaMovement().add(x,y,z)) and needsSync = true."
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.Entity",
+   "member": "public void addDeltaMovement(net.minecraft.world.phys.Vec3);",
+   "verified": true,
+   "notes": "What the CLIENT actually calls for explosion knockback: ClientPacketListener.handleExplosion does packet.playerKnockback().ifPresent(this.minecraft.player::addDeltaMovement)."
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.Entity",
+   "member": "public abstract boolean hurtServer(net.minecraft.server.level.ServerLevel, net.minecraft.world.damagesource.DamageSource, float);",
+   "verified": true,
+   "notes": "SERVER-ONLY (ServerLevel param). This is what ServerExplosion.hurtEntities calls with getEntityDamageAmount's result. No client-visible equivalent."
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public boolean hurtServer(net.minecraft.server.level.ServerLevel, net.minecraft.world.damagesource.DamageSource, float);",
+   "verified": true,
+   "notes": "SERVER-ONLY, but its arithmetic is what turns raw explosion damage into pre-armour damage for players. Verified body: if (source.scalesWithDifficulty()) { PEACEFUL -> damage = 0.0F; EASY -> damage = Math.min(damage / 2.0F + 1.0F, damage); HARD -> damage = damage * 3.0F / 2.0F; } then bails if damage == 0.0F. All four explosion damage types have \"scaling\": \"always\", so this ALWAYS applies."
+  },
+  {
+   "fqcn": "net.minecraft.world.damagesource.DamageSource",
+   "member": "public boolean scalesWithDifficulty();",
+   "verified": true,
+   "notes": "Verified body switches on type().scaling(): NEVER -> false, WHEN_CAUSED_BY_LIVING_NON_PLAYER -> causingEntity is LivingEntity && !(Player), ALWAYS -> true."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.LevelAccessor",
+   "member": "public default net.minecraft.world.Difficulty getDifficulty();",
+   "verified": true,
+   "notes": "Client-callable: body is this.getLevelData().getDifficulty(). ClientLevel$ClientLevelData has a synced `private Difficulty difficulty` with a public getDifficulty()/setDifficulty(). Difficulty constants PEACEFUL/EASY/NORMAL/HARD verified."
+  },
+  {
+   "fqcn": "net.minecraft.world.damagesource.DamageSources",
+   "member": "public net.minecraft.world.damagesource.DamageSource badRespawnPointExplosion(net.minecraft.world.phys.Vec3);",
+   "verified": true,
+   "notes": "ANSWER TO Q6. Verified body: return new DamageSource(this.damageTypes.getOrThrow(DamageTypes.BAD_RESPAWN_POINT), boomPos); -- a positional DamageSource with NO causing/direct entity."
+  },
+  {
+   "fqcn": "net.minecraft.world.damagesource.DamageTypes",
+   "member": "public static final net.minecraft.resources.ResourceKey<net.minecraft.world.damagesource.DamageType> BAD_RESPAWN_POINT;",
+   "verified": true,
+   "notes": "data/minecraft/damage_type/bad_respawn_point.json = {death_message_type: intentional_game_design, exhaustion: 0.1, message_id: badRespawnPoint, scaling: always}. Member of #minecraft:is_explosion alongside fireworks, explosion, player_explosion."
+  },
+  {
+   "fqcn": "net.minecraft.world.damagesource.DamageSources",
+   "member": "public net.minecraft.world.damagesource.DamageSource explosion(net.minecraft.world.entity.Entity, net.minecraft.world.entity.Entity);",
+   "verified": true,
+   "notes": "Verified body picks DamageTypes.PLAYER_EXPLOSION when cause != null && entity != null, else DamageTypes.EXPLOSION. Also exists: public DamageSource explosion(net.minecraft.world.level.Explosion);"
+  },
+  {
+   "fqcn": "net.minecraft.world.level.Level",
+   "member": "public net.minecraft.world.damagesource.DamageSources damageSources();",
+   "verified": true,
+   "notes": "On Level, not ServerLevel -- so a ClientLevel can build the same DamageSource object for tag/type comparisons."
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.ClientLevel",
+   "member": "public void explode(net.minecraft.world.entity.Entity, net.minecraft.world.damagesource.DamageSource, net.minecraft.world.level.ExplosionDamageCalculator, double, double, double, float, boolean, net.minecraft.world.level.Level$ExplosionInteraction, net.minecraft.core.particles.ParticleOptions, net.minecraft.core.particles.ParticleOptions, net.minecraft.util.random.WeightedList<net.minecraft.core.particles.ExplosionParticleInfo>, net.minecraft.core.Holder<net.minecraft.sounds.SoundEvent>);",
+   "verified": true,
+   "notes": "EMPTY BODY -- verified `{ }` in the decompile. ClientLevel cannot simulate an explosion at all; there is no client prediction hook here."
+  },
+  {
+   "fqcn": "net.minecraft.network.protocol.game.ClientboundExplodePacket",
+   "member": "public net.minecraft.network.protocol.game.ClientboundExplodePacket(net.minecraft.world.phys.Vec3, float, int, java.util.Optional<net.minecraft.world.phys.Vec3>, net.minecraft.core.particles.ParticleOptions, net.minecraft.core.Holder<net.minecraft.sounds.SoundEvent>, net.minecraft.util.random.WeightedList<net.minecraft.core.particles.ExplosionParticleInfo>);",
+   "verified": true,
+   "notes": "record ClientboundExplodePacket(Vec3 center, float radius, int blockCount, Optional<Vec3> playerKnockback, ...). Accessors center(), radius(), playerKnockback() are public. This is the ONLY authoritative client-side source of the true centre and power. ServerLevel only sends it to players with distanceToSqr(center) < 4096.0 (64 blocks)."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.ServerExplosion",
+   "member": "public java.util.Map<net.minecraft.world.entity.player.Player, net.minecraft.world.phys.Vec3> getHitPlayers();",
+   "verified": true,
+   "notes": "Public but only populated by a real server explode(); ServerLevel reads it to fill ClientboundExplodePacket.playerKnockback. Client-visible alternative is that packet field."
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "protected float getDamageAfterArmorAbsorb(net.minecraft.world.damagesource.DamageSource, float);",
+   "verified": true,
+   "notes": "PROTECTED, called from protected void actuallyHurt(net.minecraft.server.level.ServerLevel, DamageSource, float) -- i.e. armour reduction is server-side and not publicly callable. Sibling: protected float getDamageAfterMagicAbsorb(DamageSource, float) (Protection enchantment, uses CombatRules.getDamageAfterMagicAbsorb). Explosion types are NOT in #minecraft:bypasses_armor, so armour does apply after the raw number."
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.Entity",
+   "member": "public boolean ignoreExplosion(net.minecraft.world.level.Explosion);",
+   "verified": true,
+   "notes": "Base Entity bytecode is `iconst_0; ireturn` (false). Takes an Explosion, so not queryable client-side without a stub."
+  },
+  {
+   "fqcn": "net.minecraft.world.phys.Vec3",
+   "member": "public static net.minecraft.world.phys.Vec3 atCenterOf(net.minecraft.core.Vec3i);",
+   "verified": true,
+   "notes": "Verified body: atLowerCornerWithOffset(pos, 0.5, 0.5, 0.5). This is the respawn-anchor explosion centre. BlockPos extends Vec3i."
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.ClientLevel",
+   "member": "public void trackExplosionEffects(net.minecraft.world.phys.Vec3, float, int, net.minecraft.util.random.WeightedList<net.minecraft.core.particles.ExplosionParticleInfo>);",
+   "verified": true,
+   "notes": "Feeds ClientExplosionTracker.track(...). Purely cosmetic particles -- no damage/knockback logic. Mentioned so it is not mistaken for a damage hook."
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "public net.minecraft.client.player.LocalPlayer player;",
+   "verified": true,
+   "notes": "Also `public net.minecraft.client.multiplayer.ClientLevel level;` and `public static net.minecraft.client.Minecraft getInstance();`. LocalPlayer -> AbstractClientPlayer -> Player -> Avatar, so all Entity/LivingEntity/Player members above are available."
+  },
+  {
+   "fqcn": "net.minecraft.util.Mth",
+   "member": "public static double lerp(double, double, double);",
+   "verified": true,
+   "notes": "Used by getSeenPercent for the sample-point grid: Mth.lerp(t, bb.minX, bb.maxX) etc."
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Abilities",
+   "member": "public boolean flying;",
+   "verified": true,
+   "notes": "Public field, reached via Player.getAbilities(). Used by SimpleExplosionDamageCalculator.getKnockbackMultiplier and by ServerExplosion's hitPlayers filter (!player.isSpectator() && (!player.isCreative() || !player.getAbilities().flying))."
+  },
+  {
+   "fqcn": "net.minecraft.world.level.CombatRules",
+   "member": "getDamageAfterMagicAbsorb(float, float)",
+   "verified": false,
+   "notes": "NOT VERIFIED THIS RUN. I saw the call site `damage = CombatRules.getDamageAfterMagicAbsorb(damage, enchantmentArmor);` inside LivingEntity.getDamageAfterMagicAbsorb's decompiled body but did not javap CombatRules itself, and did not confirm its package (LivingEntity's import list was not inspected). Only relevant for the post-armour stage, which is outside the raw-damage scope."
+  }
+ ],
+ "gotchas": [
+  "`Explosion.getSeenPercent(Vec3, Entity)` NO LONGER EXISTS on the Explosion interface. In 26.2 it is `net.minecraft.world.level.ServerExplosion.getSeenPercent(Vec3, Entity)` -- still public static, still the same body. Code ported from 1.21 fails to resolve.",
+  "`Explosion` is now an interface whose `level()` returns `net.minecraft.server.level.ServerLevel`, and `ServerExplosion`'s constructor takes a ServerLevel. There is no client-constructible Explosion. If you want to reuse vanilla `ExplosionDamageCalculator.getEntityDamageAmount`, note its bytecode only invokes `radius()` and `center()` -- so a stub Explosion returning null from `level()` works -- but inlining the four lines of arithmetic is safer.",
+  "`radius` is the POWER, not the reach. Every formula does `float doubleRadius = radius * 2.0F` internally and divides distance by that. Passing power*2 as the radius doubles both the reach and (roughly) the damage. Respawn anchor passes 5.0F, so the effective reach is 10 blocks.",
+  "`ClientLevel.explode(...)` is an empty method (verified `{ }`). It is not a client prediction hook, it does not even spawn particles. All 26.2 client explosion cosmetics come from ClientboundExplodePacket -> ClientLevel.trackExplosionEffects -> ClientExplosionTracker.",
+  "Damage distance uses `entity.position()` (FEET / bottom-centre of hitbox, via getX()/getY()/getZ() reading the `position` field), while knockback DIRECTION uses `entity.getEyePosition()` -- except PrimedTnt, which uses `position()` for direction too. For a standing player that is a 1.62-block Y difference; swapping them silently skews predicted knockback pitch.",
+  "Minimum raw damage inside the radius is 1.0, not 0 -- the `+ 1.0` sits outside the exposure product, so a fully occluded entity (getSeenPercent == 0) still takes exactly 1.0F. Conversely `getEntityDamageAmount` does NOT clamp `dist`; the `dist > 1.0` cutoff lives in the private `ServerExplosion.hurtEntities()`, so calling the calculator directly for a far-away entity returns a bogus (possibly large) positive number. Gate on `dist <= 1.0` yourself, and on `radius < 1.0E-5F`.",
+  "All four explosion damage types (explosion, player_explosion, bad_respawn_point, fireworks) are `\"scaling\": \"always\"`, and `Player.hurtServer` applies difficulty scaling BEFORE armour: PEACEFUL -> 0.0F, EASY -> min(dmg/2 + 1, dmg), NORMAL -> unchanged, HARD -> dmg * 3/2. Skipping this makes any easy/hard-difficulty prediction wrong by up to 50%.",
+  "Knockback strength is no longer hard-coded: it is `(1.0 - dist) * exposure * damageCalculator.getKnockbackMultiplier(entity) * (1.0 - EXPLOSION_KNOCKBACK_RESISTANCE)`. The multiplier default is 1.0F, but SimpleExplosionDamageCalculator returns 0.0F for a creative-flying player, and ServerExplosion skips the raycast entirely (exposure forced to 0.0F) when `!shouldDamageEntity && knockbackMultiplier == 0.0F`.",
+  "The client never computes its own explosion knockback: the server puts the exact vector in `ClientboundExplodePacket.playerKnockback()` and `ClientPacketListener.handleExplosion` applies it with `minecraft.player::addDeltaMovement`. ServerLevel only sends that packet to players within `distanceToSqr(center) < 4096.0` (64 blocks), so beyond 64 blocks you get nothing at all.",
+  "getSeenPercent's sample grid applies its centring offset to X and Z ONLY -- there is no yOffset (verified in bytecode: only two Math.floor-based offsets are computed, for xs and zs). A reimplementation that adds a Y offset diverges from vanilla. Also verified by running the arithmetic: a standing 0.6x1.8 player is 3x5x3 = 45 rays; a 0.6x0.6 crawling player is 27.",
+  "Despite the name, `net.minecraft.world.level.ServerExplosion` lives in `minecraft-common.jar` and is present in `minecraft-client.jar` -- it is loadable and callable from a Fabric client source set. I compiled client code calling `ServerExplosion.getSeenPercent` against the real 26.2 jars to confirm.",
+  "A respawn-anchor DamageSource has NO entity: `new DamageSource(BAD_RESPAWN_POINT, boomPos)`. `source.getEntity()`/`getDirectEntity()` are null and `DamageTypes.PLAYER_EXPLOSION` is never used for anchors, so any is/getEntity-based attribution logic must handle the positional-only case (use `getSourcePosition()` / `sourcePositionRaw()`)."
+ ],
+ "usage": "// Verified: this file compiled cleanly with javac 25 against\n//   ~/.gradle/caches/fabric-loom/26.2/minecraft-common.jar + minecraft-client-only.jar\n// Every symbol below was confirmed by javap/decompile in this run.\nimport net.minecraft.client.Minecraft;\nimport net.minecraft.client.multiplayer.ClientLevel;\nimport net.minecraft.client.player.LocalPlayer;\nimport net.minecraft.world.Difficulty;\nimport net.minecraft.world.entity.ai.attributes.Attributes;\nimport net.minecraft.world.level.ServerExplosion;\nimport net.minecraft.world.phys.Vec3;\n\npublic final class ExplosionPredict {\n   private ExplosionPredict() {}\n\n   /**\n    * Raw pre-armour explosion damage vanilla would deal to the local player.\n    * `power` is the ServerExplosion `radius` field (respawn anchor = 5.0F); reach is power*2.\n    * Includes Player.hurtServer difficulty scaling (all explosion types are scaling:\"always\"),\n    * excludes armour / Protection / resistance / absorption.\n    */\n   public static float rawSelfDamage(final float power, final Vec3 center) {\n      Minecraft mc = Minecraft.getInstance();\n      LocalPlayer player = mc.player;\n      ClientLevel level = mc.level;\n      if (player == null || level == null || power < 1.0E-5F) {\n         return 0.0F;                                   // ServerExplosion.hurtEntities guard\n      }\n      float doubleRadius = power * 2.0F;\n      double dist = Math.sqrt(player.distanceToSqr(center)) / doubleRadius;\n      if (dist > 1.0) {\n         return 0.0F;                                   // hurtEntities() range cutoff\n      }\n      // exposure: 45 raycasts for a standing player, ClipContext.Block.COLLIDER / Fluid.NONE\n      float exposure = ServerExplosion.getSeenPercent(center, player);\n      double pow = (1.0 - dist) * exposure;\n      float raw = (float)((pow * pow + pow) / 2.0 * 7.0 * doubleRadius + 1.0);\n\n      Difficulty difficulty = level.getDifficulty();\n      if (difficulty == Difficulty.PEACEFUL) {\n         return 0.0F;\n      } else if (difficulty == Difficulty.EASY) {\n         return Math.min(raw / 2.0F + 1.0F, raw);\n      } else if (difficulty == Difficulty.HARD) {\n         return raw * 3.0F / 2.0F;\n      }\n      return raw;                                       // NORMAL\n   }\n\n   /**\n    * The knockback ServerExplosion would push. In practice the server sends the authoritative\n    * vector in ClientboundExplodePacket.playerKnockback(); this is the local estimate.\n    * Assumes a plain ExplosionDamageCalculator (multiplier 1.0F) -- true for respawn anchors.\n    */\n   public static Vec3 predictKnockback(final float power, final Vec3 center) {\n      Minecraft mc = Minecraft.getInstance();\n      LocalPlayer player = mc.player;\n      if (player == null || power < 1.0E-5F) {\n         return Vec3.ZERO;\n      }\n      float doubleRadius = power * 2.0F;\n      double dist = Math.sqrt(player.distanceToSqr(center)) / doubleRadius;\n      if (dist > 1.0) {\n         return Vec3.ZERO;\n      }\n      float knockbackMultiplier = player.getAbilities().flying ? 0.0F : 1.0F;\n      float exposure = ServerExplosion.getSeenPercent(center, player);\n      double resist = player.getAttributeValue(Attributes.EXPLOSION_KNOCKBACK_RESISTANCE);\n      double magnitude = (1.0 - dist) * exposure * knockbackMultiplier * (1.0 - resist);\n      // direction is from the EYE position, not the feet position used for `dist`\n      return player.getEyePosition().subtract(center).normalize().scale(magnitude);\n   }\n\n   /** Respawn anchor: power 5.0F, centre = Vec3.atCenterOf(pos) (block centre, +0.5 on each axis). */\n   public static float rawAnchorSelfDamage(final Vec3 anchorBlockCenter) {\n      return rawSelfDamage(5.0F, anchorBlockCenter);\n   }\n}"
+}

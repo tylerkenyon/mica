@@ -1,0 +1,422 @@
+{
+ "area": "dev/technix/client framework: ModuleManager dispatch wiring, MicaEvents bus, config codec persistence, Setting subclasses, bind system (HOLD/TOGGLE), notifications, and existence of chat/item/block helpers. All claims read out of the real source files this run; supporting Minecraft 26.2 symbols verified with javap over ~/.gradle/caches/fabric-loom/26.2/{minecraft-common,minecraft-client-only}.jar.",
+ "signatures": [
+  {
+   "fqcn": "dev.technix.client.feature.module.Module",
+   "member": "public void onPreUpdate()",
+   "notes": "Driven by ClientTickStartEvent, EventPriority.NORMAL, receiveCancelled=false (ModuleManager.java:163-167). GATED on isToggled() (forEachToggled over the cached toggledModules list). Order inside that one listener: (1) RotationHandler.getInstance().onPreGameTick() (2) forEachToggled(Module::onPreUpdate) (3) RotationHandler.getInstance().processRotations(). A SECOND ClientTickStartEvent listener registered later, in bootstrap() at ModuleManager.java:89, calls tick() -> tickHolds(); both are NORMAL so registration order decides -> holds resolve AFTER onPreUpdate/processRotations.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.Module",
+   "member": "public void onPostPlayerInput()",
+   "notes": "PlayerInputPostEvent, NORMAL, receiveCancelled=false (ModuleManager.java:168). GATED on isToggled().",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.Module",
+   "member": "public void onPreMotion()",
+   "notes": "PreMotionEvent, NORMAL, receiveCancelled=false (ModuleManager.java:170). GATED on isToggled().",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.Module",
+   "member": "public void onPostMotion()",
+   "notes": "PostMotionEvent, NORMAL, receiveCancelled=false (ModuleManager.java:172). GATED on isToggled().",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.Module",
+   "member": "public boolean onKeyPress(int key, int action)",
+   "notes": "KeyInputEvent, EventPriority.HIGHEST, receiveCancelled=true (ModuleManager.java:208-216). GATED on isToggled(). Listener body order: onRawKey(key,action) (bind bookkeeping over ALL modules) THEN forEachToggledBoolean(m -> m.onKeyPress(...)) THEN `if (veto || ClickGUI.consumeKey(key,action)) e.cancel();`. action is the raw GLFW action (1=press, 0=release, 2=repeat) straight off KeyEvent. Return false to cancel the KeyInputEvent (kills vanilla screen/keymapping handling for that key).",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.Module",
+   "member": "public boolean onMouse(int button, boolean state)",
+   "notes": "MouseButtonEvent, EventPriority.HIGHEST, receiveCancelled=true (ModuleManager.java:217-224). GATED on isToggled(). state = e.isPressed() (action == 1). Return false -> e.cancel().",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.Module",
+   "member": "public boolean onPacketSent(PacketContainer packet)",
+   "notes": "PacketSendEvent, NORMAL, receiveCancelled=true (ModuleManager.java:175-182). GATED on isToggled(). ModuleManager wraps as `new Module.PacketContainer(e.packet())`. Aggregate veto: any false from any toggled module cancels the send for everyone; no short-circuit (every module still runs).",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.Module",
+   "member": "public boolean onPacketReceived(PacketContainer packet)",
+   "notes": "PacketReceiveEvent, NORMAL, receiveCancelled=true (ModuleManager.java:185-192). GATED on isToggled(). Same aggregate-veto contract.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.Module",
+   "member": "public boolean onBlockOutline(@Nullable BlockOutlineRenderState outline)",
+   "notes": "BlockOutlineRenderEvent, NORMAL, receiveCancelled=true (ModuleManager.java:197-206). GATED on isToggled(). Param is net.minecraft.client.renderer.state.level.BlockOutlineRenderState, nullable (null when nothing targeted). Main render thread, not the tick thread.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.Module",
+   "member": "public void onWorldJoin()",
+   "notes": "WorldChangeEvent, NORMAL, receiveCancelled=false (ModuleManager.java:226-233), branch `e.current() != null`. GATED on isToggled().",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.Module",
+   "member": "public void onDisconnect()",
+   "notes": "WorldChangeEvent, NORMAL, receiveCancelled=false, branch `e.current() == null`. NOT GATED - uses forEachAll(...) over every registered module. ConfigManager.getInstance().autoSave() runs immediately after the fan-out.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.Module",
+   "member": "public void onLoad()",
+   "notes": "NOT event-driven. Called from ModuleManager.bootstrap(OverlayRenderer) in module registration order, for ALL modules (not gated), BEFORE ConfigManager.getInstance().autoLoad() - so onLoad always sees default setting values and ModuleBind.NONE.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.Module",
+   "member": "public record PacketContainer(net.minecraft.network.protocol.Packet<?> packet)",
+   "notes": "Nested record in Module; the only thing the packet hooks receive. Read-only - PacketSendEvent's javadoc states mutation/replacement is unsupported.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.ModuleManager",
+   "member": "public static synchronized ModuleManager getInstance()",
+   "notes": "Constructor calls registerModules() (empty), wireEventDispatchers(), refreshToggledModules(). Process-lifetime singleton; every subscribe() Subscription is discarded so dispatch is never torn down.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.ModuleManager",
+   "member": "public void bootstrap(@NotNull OverlayRenderer renderer)",
+   "notes": "Registers the tick()->tickHolds listener once, registers ClickGUI as an overlay element, runs module.onLoad() for all modules, registers HudModule/OverlayElement instances, then ConfigManager.getInstance().autoLoad().",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.ModuleManager",
+   "member": "public void register(@NotNull Module module) / public void tick() / public void refreshToggledModules() / public List<Module> getToggledModules() / public Module getModuleByName(String name) / public List<Module> getModulesByCategory(Category category)",
+   "notes": "register() is idempotent by case-insensitive name and posts ModuleRegisteredEvent. tick() is the public entry that resolves hold-bind delays. Also subscribes ClientStartEvent (empty body), PacketPostSendEvent and PacketPostReceiveEvent (both NORMAL/receiveCancelled=true with EMPTY handlers - no Module hook exists for the post-packet events), and ClientStopEvent -> ConfigManager.autoSave().",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.event.MicaEvents",
+   "member": "public static <E extends Event> Subscription subscribe(Class<E> eventType, Consumer<E> handler)",
+   "notes": "Delegates to the 3-arg overload with EventPriority.NORMAL.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.event.MicaEvents",
+   "member": "public static <E extends Event> Subscription subscribe(Class<E> eventType, EventPriority priority, Consumer<E> handler)",
+   "notes": "Delegates to the 4-arg overload with receiveCancelled=false.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.event.MicaEvents",
+   "member": "public static <E extends Event> Subscription subscribe(Class<E> eventType, EventPriority priority, boolean receiveCancelled, Consumer<E> handler)",
+   "notes": "The full form. Returns Subscription (functional interface, single method `void unsubscribe()`). Internally allocates a fresh Object token, so the only way to remove a functional listener is the returned Subscription.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.event.MicaEvents",
+   "member": "public static <E extends Event> E post(E event)",
+   "notes": "Returns the same instance for `if (MicaEvents.post(e).isCancelled()) return;`. Also present: register(Object), unregister(Object), isRegistered(Object), clear(), listenerCount(Class<? extends Event>), hasListeners(Class<? extends Event>) for @Subscribe-annotated holders.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.event.EventPriority",
+   "member": "public enum EventPriority { LOWEST, LOW, NORMAL, HIGH, HIGHEST }",
+   "notes": "HIGHEST runs first. ListenerList.ORDER = Comparator.comparingInt(d -> -d.priority).thenComparingLong(d -> d.sequence) - ties broken by registration sequence, verified in event/internal/ListenerList.java.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.config.ProfileSnapshotCodec",
+   "member": "private static JsonObject serializeSetting(Setting<?> setting) — instanceof chain: BooleanSetting->\"boolean\" | NumberSetting->\"number\" | MultiChoiceSetting->\"multi_choice\" | ModeSetting->\"mode\" | ColorSetting->\"color\" | StringSetting->\"string\" | else -> return null",
+   "notes": "PERSIST (6): BooleanSetting, NumberSetting, MultiChoiceSetting, ModeSetting, ColorSetting, StringSetting. DO NOT PERSIST (3, by design, comment says \"Action / Description / Hyperlink: reconstruct-at-startup state\"): ActionSetting, DescriptionSetting, HyperlinkSetting. Any OTHER Setting subclass falls into the same `else { return null; }` and is silently dropped. deserializeSetting() mirrors the chain exactly with the same 6 types and requires both \"name\" and \"value\" keys; unknown setting names are skipped silently. Order matters: MultiChoiceSetting is tested BEFORE ModeSetting, and ActionSetting/DescriptionSetting/HyperlinkSetting all extend Setting<String> yet are NOT StringSetting, so they correctly fall through.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.config.ProfileSnapshotCodec",
+   "member": "public JsonObject captureCurrentState() / public void apply(JsonObject root) / public String canonical(JsonObject root)",
+   "notes": "schemaVersion 2. Per-module JSON: name, toggled, keybind (legacy int), bind {mode, primary, secondary, enableDelayMs, disableDelayMs}, favourite, settings[]. apply() order per module: setBind() -> setToggled() -> setFavourite() -> settings loop, then ModuleManager.refreshToggledModules().",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.config.ConfigManager",
+   "member": "public static synchronized ConfigManager getInstance() / public boolean save(String rawName) / public boolean load(String rawName) / public void autoSave() / public void autoLoad() / public boolean isCurrentStateDirty() / public Path getConfigDir()",
+   "notes": "Profiles live in FabricLoader.getInstance().getGameDir().resolve(\"mica\").resolve(\"configs\"); DEFAULT_CONFIG = \"default\". Names normalized/validated by ProfileNameValidator (regex [A-Za-z0-9_-]+).",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.impl.hud.notification.NotificationManager",
+   "member": "public void post(NotificationType type, String title, String description)",
+   "notes": "THE entry point from a module. Uses defaultDurationMs (3000 ms unless the Notifications module's \"Duration (s)\" setting changed it). Thread-safe (synchronized on an internal lock).",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.impl.hud.notification.NotificationManager",
+   "member": "public void post(NotificationType type, String title, String description, long durationMs)",
+   "notes": "Explicit lifetime variant. Get the manager with `NotificationManager.getInstance()` or the public field `NotificationManager.INSTANCE`.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.impl.hud.notification.NotificationManager",
+   "member": "public static final NotificationManager INSTANCE / public static NotificationManager getInstance() / public void update(float speed) / public List<Notification> snapshot() / public void clear() / public boolean isEmpty() / public void setMaxVisible(int) / public void setDefaultDurationMs(long) / public void setDuplicateCooldownMs(long)",
+   "notes": "Private constructor. HARD_CAP = 32. Defaults: maxVisible 5, duplicateCooldownMs 350, defaultDurationMs 3000.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.impl.hud.notification.NotificationType",
+   "member": "public enum NotificationType { SUCCESS(\"check\", 0xFF22C55E), ERROR(\"x\", 0xFFEF4444), WARN(\"warning\", 0xFFFBBF24), INFO(\"info\", 0xFF60A5FA) }",
+   "notes": "Exactly four constants: SUCCESS, ERROR, WARN, INFO. Accessors getIcon() (icon-font glyph name) and getColor() (packed ARGB).",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.impl.hud.notification.Notification",
+   "member": "public Notification(NotificationType type, String title, String description, long durationMs)",
+   "notes": "You normally never construct this - NotificationManager.post does. getType/getTitle/getDescription/getDurationMs/getAnimation/isFinished/getLifetimeProgress/dismiss()/update(float).",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.setting.Setting",
+   "member": "protected Setting(@NotNull String name, @NotNull String description, @NotNull T defaultValue)",
+   "notes": "Base class. Also getName/getDescription/getValue/getDefaultValue/setValue(T)/reset()/isVisible()/visibleWhen(Supplier<Boolean>) which returns Setting<T> for chaining.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.setting.BooleanSetting",
+   "member": "public BooleanSetting(String name, String description, boolean defaultValue)",
+   "notes": "PERSISTS. Extras: toggle(), isEnabled().",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.setting.NumberSetting",
+   "member": "public NumberSetting(String name, String description, double defaultValue, double min, double max, double step)",
+   "notes": "PERSISTS. Setting<Double>. setValue clamps to [min,max].",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.setting.NumberSetting",
+   "member": "public NumberSetting(String name, String description, double defaultValue, double min, double max, double step, boolean integerOnly)",
+   "notes": "integerOnly rounds on every setValue. Extras: increment/decrement/getMin/getMax/getStep/isIntegerOnly/getIntValue/getFloatValue/getNormalized/setFromNormalized(double).",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.setting.ModeSetting",
+   "member": "public ModeSetting(String name, String description, String defaultValue, String... modes)",
+   "notes": "PERSISTS. Setting<String>.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.setting.ModeSetting",
+   "member": "public ModeSetting(String name, String description, String defaultValue, List<String> modes)",
+   "notes": "setValue SILENTLY IGNORES any value not in modes. Extras: cycle/cycleBackward/getModes/getCurrentIndex/setByIndex(int)/is(String).",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.setting.MultiChoiceSetting",
+   "member": "public MultiChoiceSetting(String name, String description, @NotNull Collection<String> options)",
+   "notes": "PERSISTS as a JSON array. Setting<Set<String>>, defaults to empty selection.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.setting.MultiChoiceSetting",
+   "member": "public MultiChoiceSetting(String name, String description, @NotNull Collection<String> options, Collection<String> defaultSelected)",
+   "notes": "Every setValue is filtered through sanitizeSelection - values not in options are dropped. Extras: getOptions/getSelectedValues (defensive LinkedHashSet copy)/isSelected/toggle(String)/clear/getDisplayValue.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.setting.ColorSetting",
+   "member": "public ColorSetting(String name, String description, int defaultColor)",
+   "notes": "PERSISTS as int. Delegates to the 4-arg ctor with hasAlpha=true.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.setting.ColorSetting",
+   "member": "public ColorSetting(String name, String description, int defaultColor, boolean hasAlpha)",
+   "notes": "Setting<Integer>, packed ARGB. Extras: getAlpha/getRed/getGreen/getBlue/setAlpha/setRGB/setRGBA/getHSB/setFromHSB/hasAlpha/setHasAlpha/getColorWithAlpha(int).",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.setting.StringSetting",
+   "member": "public StringSetting(String name, String description, String defaultValue)",
+   "notes": "PERSISTS. Delegates with maxLength=64, placeholder=\"\".",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.setting.StringSetting",
+   "member": "public StringSetting(String name, String description, String defaultValue, int maxLength)",
+   "notes": "placeholder=\"\".",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.setting.StringSetting",
+   "member": "public StringSetting(String name, String description, String defaultValue, int maxLength, @Nullable String placeholder)",
+   "notes": "setValue truncates to maxLength (min 1) and maps null to \"\". Extras: getMaxLength/getPlaceholder/isEmpty.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.setting.ActionSetting",
+   "member": "public ActionSetting(String name, String description, @Nullable String label, @Nullable Runnable action)",
+   "notes": "NEVER PERSISTS. label defaults to \"Run\" when null/blank. setValue and reset are no-ops. Extras: getLabel/trigger().",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.setting.DescriptionSetting",
+   "member": "public DescriptionSetting(String name, String description)",
+   "notes": "NEVER PERSISTS. Value == description; setValue and reset are no-ops.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.setting.HyperlinkSetting",
+   "member": "public HyperlinkSetting(String name, String description, String url)",
+   "notes": "NEVER PERSISTS. Delegates with label=null.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.setting.HyperlinkSetting",
+   "member": "public HyperlinkSetting(String name, String description, String url, @Nullable String label)",
+   "notes": "label defaults to \"Open Link\". Extras: getUrl/getLabel/browse() (java.awt.Desktop, failures logged).",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.Module",
+   "member": "protected <T extends Setting<?>> T addSetting(T setting) / public <T extends Setting<?>> T registerSetting(T setting) / public List<Setting<?>> getSettings() / @Nullable public Setting<?> getSetting(String settingName)",
+   "notes": "getSetting matches by equalsIgnoreCase on the display name. Legacy shim: `protected NumberSetting registerNumber(String settingName, float defaultValue, float min, float max, float step)` plus getNumber(String)/setNumber(String,float).",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.bind.BindMode",
+   "member": "public enum BindMode { TOGGLE(\"Toggle\"), HOLD(\"Hold\") }",
+   "notes": "Exactly two constants. getDisplayName(), and static BindMode fromName(@Nullable String) which falls back to TOGGLE for anything unrecognised (matches enum name OR display name, case-insensitive).",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.bind.ModuleBind",
+   "member": "public ModuleBind(BindMode mode, int primaryKey, int secondaryKey, int enableDelayMs, int disableDelayMs)",
+   "notes": "Immutable value type. null mode -> TOGGLE; keys <= GLFW_KEY_UNKNOWN normalized to GLFW_KEY_UNKNOWN; secondary == primary collapses to UNKNOWN; delays clamped to >= 0. public static final ModuleBind NONE = new ModuleBind(BindMode.TOGGLE, GLFW_KEY_UNKNOWN, GLFW_KEY_UNKNOWN, 0, 0) - note the DEFAULT MODE IS TOGGLE.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.bind.ModuleBind",
+   "member": "public boolean matches(Set<Integer> pressedKeys)",
+   "notes": "The only hold-detection predicate. Requires pressedKeys.contains(primaryKey) and, if hasSecondaryKey(), also contains(secondaryKey). Chord-aware, order-insensitive.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.bind.ModuleBind",
+   "member": "public BindMode getMode() / public int getPrimaryKey() / public int getSecondaryKey() / public int getEnableDelayMs() / public int getDisableDelayMs() / public boolean isBound() / public boolean hasSecondaryKey() / public boolean usesChord() / public boolean containsKey(int) / public String getDisplayName() / public ModuleBind withMode(BindMode) / withPrimaryKey(int) / withSecondaryKey(int) / withoutSecondaryKey() / withEnableDelayMs(int) / withDisableDelayMs(int)",
+   "notes": "All with* return new instances.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.ModuleManager",
+   "member": "private void applyBind(Module module, long now)",
+   "notes": "THE ONLY consumer of BindMode. Body: `if (!bind.isBound() || bind.getMode() == BindMode.TOGGLE) return;` -> so ONLY HOLD is implemented. Then satisfied = bind.matches(pressedKeys); if satisfied: clear holdReleaseAt, stamp holdSatisfiedAt if absent, and `if (!module.isToggled() && now - since >= bind.getEnableDelayMs()) module.setToggled(true)`. else if (module.isToggled() && holdSatisfiedAt.containsKey(module)): remove holdSatisfiedAt, holdReleaseAt.putIfAbsent(module, now). Finally: if holdReleaseAt has an entry and now - releasedAt >= bind.getDisableDelayMs(), remove it and setToggled(false). Called from onRawKey(int,int) (every GLFW press/release of any key, over ALL modules) and from tickHolds() via public tick() (every ClientTickStartEvent, over ALL modules).",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.ModuleManager",
+   "member": "private void onRawKey(int key, int action)",
+   "notes": "pressedKeys is a plain HashSet<Integer>: GLFW_PRESS adds, GLFW_RELEASE removes, anything else (GLFW_REPEAT) returns early before any bind work. Ignores GLFW_KEY_UNKNOWN. Fed ONLY from KeyInputEvent - mouse buttons never enter pressedKeys, so a mouse-button bind can never match.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.Module",
+   "member": "public void setToggled(boolean toggled) / public void toggle() / public boolean isToggled() / public final boolean isEnabled() / public ModuleBind getBind() / public void setBind(@Nullable ModuleBind bind) / public int getKeybind() / public void setKeybind(int keybind) / public String getKeybindName()",
+   "notes": "setToggled has a re-entrancy guard (`toggling`) and always calls ModuleManager.getInstance().onModuleStateChanged() -> refreshToggledModules() in a finally block, so toggledModules is refreshed SYNCHRONOUSLY. setKeybind(int) also drops any secondary key (withPrimaryKey(k).withoutSecondaryKey()). setBind(null) resets to ModuleBind.NONE.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.feature.module.Category",
+   "member": "public enum Category { HOME, FAVS, SETTINGS, ALL, COMBAT, MOVEMENT, RENDER, PLAYER, HUD, MISC, THEME, CONFIG }",
+   "notes": "Display names/glyphs: HOME(\"Home\",\"⌂\"), FAVS(\"Favourites\",\"★\"), SETTINGS(\"Settings\",\"⚙\"), ALL(\"All\",\"≡\"), COMBAT(\"Combat\",\"⚔\"), MOVEMENT(\"Movement\",\"⇄\"), RENDER(\"Render\",\"◉\"), PLAYER(\"Player\",\"☺\"), HUD(\"HUD\",\"▤\"), MISC(\"Misc\",\"⚒\"), THEME(\"Theme\",\"◐\"), CONFIG(\"Profiles\",\"❐\").",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.util.player.PlayerUtil",
+   "member": "public static boolean isMouseButtonPressed(int button)",
+   "notes": "The ONLY held-state (not edge) input helper in the client tree. Polls GLFW directly: GLFW.glfwGetMouseButton(mc().getWindow().handle(), button) == GLFW_PRESS. Keyboard has no equivalent helper - KeystrokesModule reads Minecraft.getInstance().options.keyUp.isDown() etc. directly.",
+   "verified": true
+  },
+  {
+   "fqcn": "dev.technix.client.**",
+   "member": "chat helper: DOES NOT EXIST",
+   "notes": "Grepped the whole client tree for displayClientMessage|sendSystemMessage|sendChat|sendCommand|ChatComponent|addMessage|Component.literal. Only raw call sites, no wrapper: diag/RotationDiagnostics.java:329 and :398 use `player.connection.sendCommand(String)`; event/diag/EventDiagnostics.java:178 uses `mc.player.connection.sendChat(String)`. Both of those SEND TO THE SERVER. There is no helper anywhere that prints a message locally to the player. Verified 26.2 alternatives via javap below.",
+   "verified": false
+  },
+  {
+   "fqcn": "dev.technix.client.**",
+   "member": "item / inventory helper: DOES NOT EXIST",
+   "notes": "Grepped for ItemStack|Inventory|getInventory|setSelectedSlot|selected across the client tree. No helper class. The only item access is direct: feature/module/impl/hud/ArmorStatusElement.java:65 `ItemStack stack = player.getItemBySlot(SLOTS[i]);` and util/ArmorIconTexture.java. util/player/PlayerUtil.java has only geometry/team helpers (getClosestVectorToBox, getClosestVectorToBoundingBox, getDistanceToEntity, isMouseButtonPressed, areOnSameTeam).",
+   "verified": false
+  },
+  {
+   "fqcn": "dev.technix.client.**",
+   "member": "block-placement helper: DOES NOT EXIST",
+   "notes": "No placement util. What exists is EVENTS ONLY: mixin/MultiPlayerGameModeMixin.java hooks attack/startDestroyBlock/interact/useItem/useItemOn at HEAD and posts AttackEntityEvent, AttackBlockEvent, InteractEntityEvent, UseItemEvent, UseBlockEvent (cancellation resolves to InteractionResult.FAIL / false). For raycasting there is util/RaycastUtil.java (raycastBlock(double,boolean,float,Rotation-ish overloads), raycastEntity, rotationVector, cameraPos, isMiss) and util/RotationUtil.getRotationFromRaycastedBlock(...) returning util/world/RaytracedRotation (record of Rotation + HitResult). To actually place, you must call MultiPlayerGameMode yourself - signature verified below.",
+   "verified": false
+  },
+  {
+   "fqcn": "net.minecraft.client.player.LocalPlayer",
+   "member": "public void sendSystemMessage(net.minecraft.network.chat.Component)",
+   "notes": "CLIENT-VISIBLE, LOCAL-ONLY chat print - this is the client-side alternative to server-only ServerPlayer messaging. Decompiled body (LocalPlayer.java:430-432): `this.minecraft.gui.chatListener().handleSystemMessage(message, true);`. Overrides Player.sendSystemMessage(Component). Nothing is sent to the server.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.ClientPacketListener",
+   "member": "public void sendChat(java.lang.String)",
+   "notes": "Sends real chat TO THE SERVER (goes through the project's ClientPacketListenerMixin -> ChatSendEvent, cancellable). Reach it via `Minecraft.getInstance().player.connection` (LocalPlayer field verified: `public final net.minecraft.client.multiplayer.ClientPacketListener connection;`). Do NOT use this to show a local message.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.ClientPacketListener",
+   "member": "public void sendCommand(java.lang.String)",
+   "notes": "Server-bound command (no leading slash). Also hooked by ClientPacketListenerMixin -> ChatSendEvent.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.network.chat.Component",
+   "member": "public static net.minecraft.network.chat.MutableComponent literal(java.lang.String)",
+   "notes": "Also `public static MutableComponent empty();`. Needed to build the argument for sendSystemMessage.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "public static net.minecraft.client.Minecraft getInstance()  /  public net.minecraft.client.player.LocalPlayer player;",
+   "notes": "player is a public field (nullable).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public int getSelectedSlot(); public void setSelectedSlot(int); public net.minecraft.world.item.ItemStack getSelectedItem(); public net.minecraft.world.item.ItemStack setSelectedItem(net.minecraft.world.item.ItemStack); public int findSlotMatchingItem(net.minecraft.world.item.ItemStack); public int findSlotMatchingCraftingIngredient(net.minecraft.core.Holder<net.minecraft.world.item.Item>, net.minecraft.world.item.ItemStack); public int getSuitableHotbarSlot(); public int getFreeSlot(); public static boolean isHotbarSlot(int); public net.minecraft.world.item.ItemStack getItem(int); public boolean contains(net.minecraft.world.item.ItemStack); public boolean contains(net.minecraft.tags.TagKey<net.minecraft.world.item.Item>); public static final int SELECTION_SIZE; public static final int SLOT_OFFHAND; public static final int NOT_FOUND_INDEX;",
+   "notes": "26.2 names: getSelectedSlot/setSelectedSlot/getSelectedItem (the old `selected` field is private). Since no project helper exists you call these directly. Note: mutating the slot client-side still needs the server told - vanilla does that from its own hotbar code, so a silent-switch module must send its own packet.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "public net.minecraft.world.InteractionResult useItemOn(net.minecraft.client.player.LocalPlayer, net.minecraft.world.InteractionHand, net.minecraft.world.phys.BlockHitResult)",
+   "notes": "Client-side block placement/use entry point - CLIENT-SAFE (reached via Minecraft.getInstance().gameMode). Sibling: `public boolean startDestroyBlock(net.minecraft.core.BlockPos, net.minecraft.core.Direction)` and `public InteractionResult useItem(net.minecraft.world.entity.player.Player, net.minecraft.world.InteractionHand)`. Calling useItemOn re-enters MultiPlayerGameModeMixin, so your own UseBlockEvent listeners will see your synthetic placement.",
+   "verified": true
+  }
+ ],
+ "gotchas": [
+  "BindMode.TOGGLE IS DEAD CODE. applyBind's first line is `if (!bind.isBound() || bind.getMode() == BindMode.TOGGLE) return;` and I grepped all of src/ for getBind()/getKeybind()/isBound()/BindMode. - the only other consumers are ProfileSnapshotCodec (serialization), BindModal (the ClickGUI editor UI) and DetailPane (a badge label). NOTHING maps a pressed key to module.toggle() for TOGGLE mode. Since ModuleBind.NONE defaults to BindMode.TOGGLE, a bind set through the modal with the default mode does nothing at all in-game. The only working toggle paths are HOLD binds and the ClickGUI (Enter on selection, right-click a module row, DetailPane click).",
+  "Module.onKeyPress does NOT fire while the module is disabled. Both onKeyPress and onMouse are dispatched through forEachToggledBoolean(...), which iterates the cached `toggledModules` list (rebuilt by refreshToggledModules() from modules.stream().filter(Module::isToggled)). A module therefore CANNOT implement its own hold-key from inside onKeyPress - it would never see the press that should turn it on. Do it by subscribing to KeyInputEvent directly (the established pattern: Sprint, MovementFix, SprintReset and CPSDisplayElement all call MicaEvents.subscribe(...) in their own constructor and self-gate on isToggled()).",
+  "Asymmetric edge visibility for HOLD-bound modules inside onKeyPress: the KeyInputEvent listener runs onRawKey(...) (which can setToggled(true), and setToggled synchronously refreshes toggledModules in its finally block) BEFORE the onKeyPress fan-out. So with enableDelayMs == 0 a hold-bound module DOES receive the press that enabled it - but on release onRawKey disables it first, so it NEVER receives the matching release. Any state machine built on onKeyPress edges will get stuck.",
+  "A module returning false from onKeyPress silently disables the whole ClickGUI key router for that key. The line is `if (veto || ClickGUI.consumeKey(e.key(), e.action())) e.cancel();` - Java's || short-circuits, so on veto consumeKey is never called: no GUI open/close key, no ESC handling, no bind-modal capture, no text-field editing for that keystroke.",
+  "Packet and outline vetoes are aggregate and global, not per-module. forEachToggledBoolean runs EVERY toggled module (no short-circuit) and cancels if ANY returned false - so one module vetoing a packet cancels it for the whole client, and other modules' hooks still ran and saw it.",
+  "Any Setting subclass that is not one of BooleanSetting, NumberSetting, MultiChoiceSetting, ModeSetting, ColorSetting, StringSetting silently fails to save - ProfileSnapshotCodec.serializeSetting's instanceof chain ends in `else { return null; }` and the null is dropped by the caller with no log. ActionSetting/DescriptionSetting/HyperlinkSetting are intentional; a NEW custom subclass hits the same branch. Extending one of the 6 (e.g. `class MySetting extends BooleanSetting`) does persist, because instanceof matches.",
+  "ProfileSnapshotCodec.apply() calls module.setToggled(...) BEFORE it applies the settings array, so a module's onEnable() runs against DEFAULT setting values during config load. Same for onLoad(), which bootstrap() calls before ConfigManager.autoLoad(). Read settings lazily (in onPreUpdate / at use time), never cache them in onEnable or onLoad.",
+  "Settings are keyed by display name, matched case-insensitively via Module.getSetting -> equalsIgnoreCase. Renaming a setting's display name silently orphans every saved value (deserializeSetting just `return`s when getSetting is null). Two settings with names differing only in case collide - the first in the list wins.",
+  "Silent value coercion on load, per type: ModeSetting.setValue IGNORES any value not in its modes list (rename a mode option -> saved value dropped, setting stays at default); MultiChoiceSetting filters out selections no longer in options; NumberSetting clamps to [min,max] and rounds when integerOnly; StringSetting truncates to maxLength. None of these log anything.",
+  "HOLD enable-delay leak: in applyBind the cleanup branch is `else if (module.isToggled() && holdSatisfiedAt.containsKey(module))`. If you release the key BEFORE enableDelayMs elapses, the module is not toggled, so that branch is skipped and holdSatisfiedAt keeps the stale timestamp. The next press reuses the old `since`, making `now - since >= enableDelayMs` instantly true - the enable delay is bypassed on every press after the first aborted one.",
+  "Binds are keyboard-only. pressedKeys is fed exclusively from onRawKey, which is called only from the KeyInputEvent listener; MouseButtonEvent never touches it, and GLFW_REPEAT returns before any bind work. pressedKeys is also never cleared on focus loss, world change, or GUI open, so a key released while the game window is unfocused stays 'held' and a HOLD bind can latch on.",
+  "NotificationManager.update(float) is called ONLY from NotificationsModule.updateDimensions (invoked from its render()). If the \"Notifications\" HUD module is disabled, posted toasts never age out and never render - the deque just fills to HARD_CAP = 32 and old entries get trimmed. Posting is silently invisible, with no error. Also note post()'s maxVisible loop calls removeFirst / dismiss / addFirst / break, so it never actually shrinks the deque; it only marks the oldest for removal and relies on update() to drop it.",
+  "Duplicate suppression in NotificationManager.post compares only against peekLast() within duplicateCooldownMs (350 ms default), and lastDuplicateAt is stamped on EVERY accepted post. Two alternating toasts posted rapidly both get through; the same toast twice in 350 ms gets the second one dropped silently.",
+  "PacketPostSendEvent and PacketPostReceiveEvent are subscribed by ModuleManager with empty lambdas - there is no Module hook for them. If you need post-send/post-receive, subscribe to MicaEvents yourself.",
+  "ModuleManager registers two separate ClientTickStartEvent listeners, both at NORMAL, and ordering depends on registration sequence (ListenerList sorts by -priority then sequence): the constructor's wireEventDispatchers() one (onPreGameTick -> onPreUpdate -> processRotations) is registered first, then bootstrap()'s `e -> tick()` (hold-bind delay resolution). So hold-bind enable/disable from a *delay* lands AFTER that tick's onPreUpdate. RotationDiagnostics, when enabled, subscribes ClientTickStartEvent at HIGHEST and therefore runs before both.",
+  "ModuleManager throws away every Subscription that subscribe() returns, so its dispatch can never be unwired; the manager is a synchronized lazy singleton for the process lifetime. If YOUR module subscribes in its constructor (the house pattern), keep the Subscription only if you actually intend to unsubscribe - otherwise self-gate on isToggled() inside the handler like Sprint does.",
+  "Module.onDisconnect is the ONE hook that is not gated on isToggled() (forEachAll), and ConfigManager.autoSave() runs right after it - so state you mutate in onDisconnect is what gets persisted. onWorldJoin, by contrast, is gated.",
+  "No chat / item / block-placement helper exists anywhere under dev/technix/client - you must call Minecraft classes directly. Watch the client-vs-server split: to print a message locally use LocalPlayer.sendSystemMessage(Component) (verified to route to minecraft.gui.chatListener().handleSystemMessage(message, true)); ClientPacketListener.sendChat/sendCommand talk to the SERVER and re-enter this project's ChatSendEvent via ClientPacketListenerMixin. There is no ServerLevel/ServerPlayer path available from here at all."
+ ],
+ "usage": "package dev.technix.client.feature.module.impl.misc;\n\nimport dev.technix.client.event.EventPriority;\nimport dev.technix.client.event.MicaEvents;\nimport dev.technix.client.event.events.input.KeyInputEvent;\nimport dev.technix.client.feature.module.Category;\nimport dev.technix.client.feature.module.Module;\nimport dev.technix.client.feature.module.impl.hud.notification.NotificationManager;\nimport dev.technix.client.feature.module.impl.hud.notification.NotificationType;\nimport dev.technix.client.feature.module.setting.BooleanSetting;\nimport dev.technix.client.feature.module.setting.ModeSetting;\nimport dev.technix.client.feature.module.setting.NumberSetting;\nimport net.minecraft.client.Minecraft;\nimport net.minecraft.client.player.LocalPlayer;\nimport net.minecraft.network.chat.Component;\nimport org.lwjgl.glfw.GLFW;\n\n/** Module that owns its own hold-key, because onKeyPress never fires while disabled. */\npublic final class Example extends Module {\n\n    // All three of these round-trip through ProfileSnapshotCodec.\n    private final BooleanSetting toast   = addSetting(new BooleanSetting(\"Toast\", \"Notify on fire\", true));\n    private final NumberSetting  reach   = addSetting(new NumberSetting(\"Reach\", \"Blocks\", 3.0, 1.0, 6.0, 0.1));\n    private final ModeSetting    mode    = addSetting(new ModeSetting(\"Mode\", \"How to run\", \"Normal\", \"Normal\", \"Fast\"));\n\n    private volatile boolean holdDown;\n\n    public Example() {\n        super(\"Example\", \"Hold V while enabled\", Category.MISC);\n\n        // House pattern (see Sprint / MovementFix): subscribe in the constructor and\n        // self-gate. HIGHEST + receiveCancelled=true mirrors ModuleManager's own\n        // KeyInputEvent listener, so we still see keys another module vetoed.\n        MicaEvents.subscribe(KeyInputEvent.class, EventPriority.HIGHEST, true, e -> {\n            if (e.key() != GLFW.GLFW_KEY_V) {\n                return;\n            }\n            if (e.action() == GLFW.GLFW_PRESS) {\n                this.holdDown = true;\n            } else if (e.action() == GLFW.GLFW_RELEASE) {   // GLFW_REPEAT is ignored\n                this.holdDown = false;\n            }\n        });\n    }\n\n    @Override\n    public void onLoad() {\n        // Runs before ConfigManager.autoLoad(): settings are still at defaults here.\n        this.holdDown = false;\n    }\n\n    @Override\n    public void onEnable() {\n        // Also runs with default settings during profile load - do not cache values.\n        this.holdDown = false;\n    }\n\n    /** ClientTickStartEvent, NORMAL, gated on isToggled(); runs after RotationHandler.onPreGameTick(). */\n    @Override\n    public void onPreUpdate() {\n        LocalPlayer player = Minecraft.getInstance().player;\n        if (player == null || !this.holdDown) {\n            return;\n        }\n        if (this.toast.isEnabled()) {\n            // Requires the \"Notifications\" HUD module to be enabled, or nothing renders\n            // and nothing ages out of the queue.\n            NotificationManager.getInstance().post(NotificationType.INFO, getName(),\n                    this.mode.getValue() + \" @ \" + this.reach.getFloatValue());\n        }\n        // Local-only chat print. player.connection.sendChat(String) would talk to the server.\n        player.sendSystemMessage(Component.literal(\"[\" + getName() + \"] fired\"));\n    }\n\n    /** Only ever reached while toggled - never rely on this for a hold key. */\n    @Override\n    public boolean onKeyPress(int key, int action) {\n        return true; // false here would also short-circuit ClickGUI.consumeKey\n    }\n\n    @Override\n    public String getInfoUpdate() {\n        return this.mode.getValue();\n    }\n}\n// Register it in dev.technix.client.feature.module.Modules.registerAll(ModuleManager):\n//     manager.register(new Example());"
+}

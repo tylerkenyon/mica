@@ -38,7 +38,7 @@ OverlayRenderer renderer = OverlayRenderer.builder()
         .build();
 
 renderer.registerElement(new MyHudElement());
-ActiveRenderers.set(renderer);
+renderer.makeActive();
 ```
 
 ## Per-frame lifecycle
@@ -180,7 +180,7 @@ primitive — the safety net is there if you want it.
 | Pitfall                                                        | Symptom                              | Fix                                                              |
 | -------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------- |
 | Returning `null` from `Minecraft.getInstance()` is not handled | `NullPointerException` on first frame | Guard your `render()` early-return on the absence of player/screen. |
-| Forgetting `ActiveRenderers.set(renderer)`                    | Renderer built but no per-frame draws visible. | Set it from your client entrypoint. |
+| Forgetting `makeActive()`                                     | Renderer built but no per-frame draws visible. | Call it from your client entrypoint. |
 | Using `Draw.frostedPanel` in the OpenGL fallback               | Backdrop is blank.                   | Set `--graphicsBackend vulkan` on the launcher command line.      |
 | Holding onto a `RenderContext` past one frame                  | Hard-to-diagnose visual artifacts.   | Read `RenderContext` once per `render()` call.                    |
 

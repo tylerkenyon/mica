@@ -28,11 +28,6 @@ graphify-out/
 # Distribution artefacts - ./gradlew dist produces these.
 dist/
 
-# Personal client modules - kept locally for the author's tests, pushed to remote.
-# The published library jar (built by :dist) strips this package, so dropping it from git
-# keeps "no personal modules" enforcement at both the build and the history levels.
-src/client/java/dev/technix/client/
-
 # Author-side dev scripts - PowerShell helpers used during HUD testing. Not part of the
 # library lifecycle, not built, just clutter from working trees.
 mc-input.ps1

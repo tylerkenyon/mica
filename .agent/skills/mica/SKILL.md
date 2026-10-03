@@ -17,9 +17,9 @@ folder for the corresponding design doc before writing code.
 
 | Package                                        | What lives there                                                  |
 | ---------------------------------------------- | ----------------------------------------------------------------- |
-| `dev.technix.mica.api`                         | Public API: `OverlayRenderer`, `OverlayElement`, `RenderContext`, `MicaScreen`, `Palette`, `FontRegistry`, `FontFace`, `MicaFonts`, `FrostedGlassStyle`, `Draw`primitives, `ResourceReader`, `SpriteBounds`, `TextureFilter`, `TextureHandle`, `VanillaAtlases`. |
+| `dev.technix.mica.api`                         | Public API: `OverlayRenderer`, `OverlayElement`, `RenderContext`, `MicaScreen`, `Palette`, `FontRegistry`, `FontFace`, `MicaFonts`, `FrostedGlassStyle`, `Draw` primitives, `ResourceReader`, `SpriteBounds`, `TextureFilter`, `TextureHandle`, `VanillaAtlases`. |
 | `dev.technix.mica.api.compat.v26_2`            | `MinecraftCompatImpl_26_2` — the version adapter that reaches the host's Vulkan device, command buffer and atlas sprites. The only file in the project that imports `com.mojang.*`. |
-| `dev.technix.mica.internal`                    | Renderer (`ImGuiRenderer`), Vulkan backend (`VulkanImGuiBackend`, `FrostedGlassRenderer`, `VulkanShaderCompiler`), input routing (`ImGuiInputRouter`), screen detection (`ScreenDetector`), font atlas (`ImGuiFonts`, `FontLoader`, `SystemFonts`), `ActiveRenderers`. |
+| `dev.technix.mica.internal`                    | Renderer (`ImGuiRenderer`), Vulkan backend (`VulkanImGuiBackend`, `FrostedGlassRenderer`, `VulkanShaderCompiler`), input routing (`ImGuiInputRouter`), screen detection (`ScreenDetector`), font atlas (`ImGuiFonts`, `FontLoader`), `ActiveRenderers`. |
 | `dev.technix.mica.mixin.client`                | Mixin accessors required by the v26_2 adapter — bridge into Mojang's Vulkan bindings. |
 | `dev.technix.mica.examples`                    | `ToastElement` — a reference `OverlayElement`. The shipped icon for the library's "how do I render" surface. |
 
@@ -36,9 +36,7 @@ folder for the corresponding design doc before writing code.
 | `MinecraftCompat` interface                         | `dev.technix.mica.api.MinecraftCompat`               |
 | `MinecraftCompatImpl_26_2`                          | `dev.technix.mica.api.compat.v26_2.*`                |
 | `Draw.frostedPanel` / `Draw.text` / `Draw.image`    | `dev.technix.mica.api.Draw`; font faces go through `dev.technix.mica.api.MicaFonts` (`internal.util.Draw` is only a deprecated shim) |
-| `OverlayRenderer.makeActive()` / `close()`           | `dev.technix.mica.api.OverlayRenderer` — the whole active-renderer lifecycle; `internal.ActiveRenderers` is no longer consumer-facing |
-| `FontRegistry.listExternalFonts()`                  | `dev.technix.mica.api.FontRegistry` — user files in `<gamedir>/mica/fonts` |
-| `SystemFonts.read(Weight)`                          | `dev.technix.mica.internal.SystemFonts` — the OS UI font behind the default faces |
+| `ActiveRenderers.set(renderer)`                     | `dev.technix.mica.internal.ActiveRenderers` (called from `api`) |
 
 ## Authoring rules
 

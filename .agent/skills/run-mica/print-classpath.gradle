@@ -1,0 +1,8 @@
+// Gradle init script: prints the client source set's compile classpath so a single
+// file can be compiled with javac when the working tree is red for unrelated reasons.
+//   ./gradlew -I .claude/skills/run-mica/print-classpath.gradle printClientCp -q
+allprojects {
+    tasks.register('printClientCp') {
+        doLast { println project.sourceSets.client.compileClasspath.asPath }
+    }
+}

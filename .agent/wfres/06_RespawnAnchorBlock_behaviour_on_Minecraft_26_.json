@@ -1,0 +1,313 @@
+{
+ "area": "RespawnAnchorBlock behaviour on Minecraft 26.2 (Mojang official mappings) — charge/explode/set-spawn condition tree, explosion parameters, and the client-visible replacement for the now-removed DimensionType.respawnAnchorWorks()",
+ "signatures": [
+  {
+   "fqcn": "net.minecraft.world.level.block.RespawnAnchorBlock",
+   "member": "protected net.minecraft.world.InteractionResult useItemOn(net.minecraft.world.item.ItemStack, net.minecraft.world.level.block.state.BlockState, net.minecraft.world.level.Level, net.minecraft.core.BlockPos, net.minecraft.world.entity.player.Player, net.minecraft.world.InteractionHand, net.minecraft.world.phys.BlockHitResult)",
+   "notes": "protected. In 26.2 this ONLY charges. Body: if (isRespawnFuel(itemStack) && canBeCharged(state)) { charge(player, level, pos, state); itemStack.consume(1, player); return InteractionResult.SUCCESS; } else return (hand == InteractionHand.MAIN_HAND && isRespawnFuel(player.getItemInHand(InteractionHand.OFF_HAND)) && canBeCharged(state)) ? InteractionResult.PASS : InteractionResult.TRY_WITH_EMPTY_HAND; -- no isClientSide gate, so charge() also runs client-side as prediction.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.RespawnAnchorBlock",
+   "member": "protected net.minecraft.world.InteractionResult useWithoutItem(net.minecraft.world.level.block.state.BlockState, net.minecraft.world.level.Level, net.minecraft.core.BlockPos, net.minecraft.world.entity.player.Player, net.minecraft.world.phys.BlockHitResult)",
+   "notes": "protected. This is where explode and set-spawn live in 26.2. if (state.getValue(CHARGE) == 0) return PASS; else if (level instanceof ServerLevel serverLevel) { if (!canSetSpawn(serverLevel, pos)) { this.explode(state, serverLevel, pos); return SUCCESS_SERVER; } else { if (player instanceof ServerPlayer sp) { ... if (cfg == null || !cfg.isSamePosition(newCfg)) { sp.setRespawnPosition(newCfg, true); serverLevel.playSound(null, x+0.5, y+0.5, z+0.5, SoundEvents.RESPAWN_ANCHOR_SET_SPAWN, SoundSource.BLOCKS, 1.0F, 1.0F); return SUCCESS_SERVER; } } return CONSUME; } } else return CONSUME;",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.RespawnAnchorBlock",
+   "member": "private static boolean isRespawnFuel(net.minecraft.world.item.ItemStack)",
+   "notes": "PRIVATE — not callable. Body is exactly: return itemInHand.is(Items.GLOWSTONE); Glowstone block item only; glowstone dust is not fuel, and there is no tag indirection.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.RespawnAnchorBlock",
+   "member": "private static boolean canBeCharged(net.minecraft.world.level.block.state.BlockState)",
+   "notes": "PRIVATE — not callable. Body is exactly: return (Integer)state.getValue(CHARGE) < 4; (literal 4, equal to MAX_CHARGES). Reproduce as state.getValue(RespawnAnchorBlock.CHARGE) < RespawnAnchorBlock.MAX_CHARGES.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.RespawnAnchorBlock",
+   "member": "private static boolean isWaterThatWouldFlow(net.minecraft.core.BlockPos, net.minecraft.world.level.Level)",
+   "notes": "PRIVATE. Body: FluidState fluid = level.getFluidState(pos); if (!fluid.is(FluidTags.WATER)) return false; else if (fluid.isSource()) return true; else { float amount = fluid.getAmount(); if (amount < 2.0F) return false; else return !level.getFluidState(pos.below()).is(FluidTags.WATER); } Called ONLY from explode(), never from the charging path.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.RespawnAnchorBlock",
+   "member": "private void explode(net.minecraft.world.level.block.state.BlockState, net.minecraft.server.level.ServerLevel, net.minecraft.core.BlockPos)",
+   "notes": "PRIVATE + instance + requires ServerLevel — completely uncallable from client code. Never reads CHARGE. Final line: level.explode(null, level.damageSources().badRespawnPointExplosion(boomPos), damageCalculator, boomPos, 5.0F, true, ExplosionInteraction.BLOCK); where boomPos = Vec3.atCenterOf(pos). First line is level.removeBlock(pos, false).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.RespawnAnchorBlock",
+   "member": "public static boolean canSetSpawn(net.minecraft.server.level.ServerLevel, net.minecraft.core.BlockPos)",
+   "notes": "SERVER-ONLY by parameter type. Whole body: return (Boolean)level.environmentAttributes().getValue(EnvironmentAttributes.RESPAWN_ANCHOR_WORKS, pos); It does not consult DimensionType directly at all.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.RespawnAnchorBlock",
+   "member": "public static void charge(net.minecraft.world.entity.Entity, net.minecraft.world.level.Level, net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState)",
+   "notes": "First param is @Nullable Entity sourceEntity. Takes plain Level, so it is callable client-side. Does setBlock(pos, state.setValue(CHARGE, +1), 3), gameEvent(GameEvent.BLOCK_CHANGE, ...), playSound(SoundEvents.RESPAWN_ANCHOR_CHARGE).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.RespawnAnchorBlock",
+   "member": "public static final net.minecraft.world.level.block.state.properties.IntegerProperty CHARGE",
+   "notes": "Initialized to BlockStateProperties.RESPAWN_ANCHOR_CHARGES.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.RespawnAnchorBlock",
+   "member": "public static final int MIN_CHARGES / public static final int MAX_CHARGES",
+   "notes": "MIN_CHARGES = 0, MAX_CHARGES = 4 (read from the decompiled field initializers).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.RespawnAnchorBlock",
+   "member": "public static int getScaledChargeLevel(net.minecraft.world.level.block.state.BlockState, int)",
+   "notes": "Mth.floor((charge - 0) / 4.0F * maximum). Called with 15 for the comparator output.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.RespawnAnchorBlock",
+   "member": "public static java.util.Optional<net.minecraft.world.phys.Vec3> findStandUpPosition(net.minecraft.world.entity.EntityType<?>, net.minecraft.world.level.CollisionGetter, net.minecraft.core.BlockPos)",
+   "notes": "Takes CollisionGetter, so a ClientLevel works here. Tries the safe (checkDangerous=true) pass first, then the unsafe pass.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.state.properties.BlockStateProperties",
+   "member": "public static final net.minecraft.world.level.block.state.properties.IntegerProperty RESPAWN_ANCHOR_CHARGES",
+   "notes": "Initializer read from decompile: IntegerProperty.create(\"charges\", 0, 4). Range 0..4 inclusive (5 states); blockstate key is \"charges\". Companions: MIN_RESPAWN_ANCHOR_CHARGES = 0, MAX_RESPAWN_ANCHOR_CHARGES = 4.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.attribute.EnvironmentAttributes",
+   "member": "public static final net.minecraft.world.attribute.EnvironmentAttribute<java.lang.Boolean> RESPAWN_ANCHOR_WORKS",
+   "notes": "Registered as: register(\"gameplay/respawn_anchor_works\", EnvironmentAttribute.builder(AttributeTypes.BOOLEAN).defaultValue(false)) — NO .syncable(), NO .notPositional(). So isSyncable()==false and isPositional()==true. Identifier: minecraft:gameplay/respawn_anchor_works.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.Level",
+   "member": "public abstract net.minecraft.world.attribute.EnvironmentAttributeSystem environmentAttributes()",
+   "notes": "Declared abstract on Level (plus a covariant bridge 'public EnvironmentAttributeReader environmentAttributes()'), so ClientLevel implements it — the call compiles and runs client-side. ClientLevel overrides it as 'public EnvironmentAttributeSystem environmentAttributes()'.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.ClientLevel",
+   "member": "public net.minecraft.world.attribute.EnvironmentAttributeSystem environmentAttributes()",
+   "notes": "Backed by a private final field built in the constructor: this.environmentAttributes = this.addEnvironmentAttributeLayers(EnvironmentAttributeSystem.builder()).build(); addEnvironmentAttributeLayers calls environmentAttributes.addDefaultLayers(this) and then only adds time-based layers for SKY_COLOR and SKY_LIGHT_FACTOR.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.attribute.EnvironmentAttributeReader",
+   "member": "public default <Value> Value getValue(net.minecraft.world.attribute.EnvironmentAttribute<Value>, net.minecraft.core.BlockPos)",
+   "notes": "Default method: returns this.getValue(attribute, Vec3.atCenterOf(pos)). EnvironmentAttributeSystem implements EnvironmentAttributeReader, so this overload is callable on the value returned by ClientLevel.environmentAttributes(). This is the overload canSetSpawn uses.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.attribute.EnvironmentAttributeReader",
+   "member": "public abstract <Value> Value getDimensionValue(net.minecraft.world.attribute.EnvironmentAttribute<Value>)",
+   "notes": "Do NOT call this with RESPAWN_ANCHOR_WORKS: EnvironmentAttributeSystem.getDimensionValue throws new IllegalStateException(\"Position must always be provided for positional attribute \" + attribute) when SharedConstants.IS_RUNNING_IN_IDE && attribute.isPositional(), which is exactly the Loom dev-client case.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.attribute.EnvironmentAttributeSystem",
+   "member": "public <Value> Value getValue(net.minecraft.world.attribute.EnvironmentAttribute<Value>, net.minecraft.world.phys.Vec3, net.minecraft.world.attribute.SpatialAttributeInterpolator)",
+   "notes": "Body: sampler = getValueSampler(attribute); return sampler == null ? attribute.defaultValue() : sampler.getValue(pos, biomeInterpolator); — a missing layer silently yields the attribute default rather than throwing. This is the mechanism that makes the client answer 'false' everywhere.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.attribute.EnvironmentAttribute",
+   "member": "public Value defaultValue() / public boolean isSyncable() / public boolean isPositional() / public boolean isSpatiallyInterpolated()",
+   "notes": "EnvironmentAttribute.Builder field defaults, read from the decompile: isSyncable = false, isPositional = true, isSpatiallyInterpolated = false.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.attribute.EnvironmentAttributeMap",
+   "member": "public static final com.mojang.serialization.Codec<net.minecraft.world.attribute.EnvironmentAttributeMap> NETWORK_CODEC",
+   "notes": "NETWORK_CODEC = CODEC.xmap(EnvironmentAttributeMap::filterSyncable, EnvironmentAttributeMap::filterSyncable), and private static filterSyncable does Maps.filterKeys(entries, EnvironmentAttribute::isSyncable). Applied on DECODE as well as encode.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.dimension.DimensionType",
+   "member": "public static final com.mojang.serialization.Codec<net.minecraft.world.level.dimension.DimensionType> NETWORK_CODEC",
+   "notes": "= createDirectCodec(EnvironmentAttributeMap.NETWORK_CODEC), while DIRECT_CODEC = createDirectCodec(EnvironmentAttributeMap.CODEC). The 'attributes' field is attributeMapCodec.optionalFieldOf(\"attributes\", EnvironmentAttributeMap.EMPTY).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.dimension.DimensionType",
+   "member": "public net.minecraft.world.attribute.EnvironmentAttributeMap attributes()",
+   "notes": "Record component. DimensionType is now 'public final class DimensionType extends java.lang.Record'.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.dimension.DimensionType",
+   "member": "public boolean respawnAnchorWorks()",
+   "notes": "DOES NOT EXIST in 26.2. Confirmed by a full 'javap -p net.minecraft.world.level.dimension.DimensionType' — the record's components are hasFixedTime, hasSkyLight, hasCeiling, hasEnderDragonFight, coordinateScale, minY, height, logicalHeight, infiniburn, ambientLight, monsterSettings, skybox, cardinalLightType, attributes, timelines, defaultClock. The flag moved into attributes() as EnvironmentAttributes.RESPAWN_ANCHOR_WORKS. (bedWorks() is likewise gone; it is now EnvironmentAttributes.BED_RULE.)",
+   "verified": false
+  },
+  {
+   "fqcn": "net.minecraft.world.level.dimension.DimensionType",
+   "member": "public boolean hasCeiling()",
+   "notes": "A plain record component, always synced (not part of the attributes map). true for minecraft:the_nether AND minecraft:overworld_caves, so it is NOT a correct proxy for respawn_anchor_works (overworld_caves reuses overworldAttributes, which sets RESPAWN_ANCHOR_WORKS=false).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.Level",
+   "member": "public net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension() / public net.minecraft.world.level.dimension.DimensionType dimensionType() / public net.minecraft.core.Holder<net.minecraft.world.level.dimension.DimensionType> dimensionTypeRegistration()",
+   "notes": "All public and non-abstract on Level, so all callable on a ClientLevel.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.Level",
+   "member": "public static final net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> OVERWORLD / NETHER / END",
+   "notes": "Still present in 26.2. 'level.dimension() == Level.NETHER' is the simplest exact client-side test for the vanilla dimension set.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.attribute.EnvironmentAttributes",
+   "member": "public static final net.minecraft.world.attribute.EnvironmentAttribute<java.lang.Boolean> FAST_LAVA",
+   "notes": "register(\"gameplay/fast_lava\", builder(BOOLEAN).defaultValue(false).notPositional().syncable()) — the only nether-exclusive gameplay boolean that is BOTH syncable and notPositional, so getDimensionValue() is legal on it client-side. In DimensionTypes.bootstrap only minecraft:the_nether sets it (true). Best client-side proxy for 'respawn anchor works here'.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.attribute.EnvironmentAttributes",
+   "member": "public static final net.minecraft.world.attribute.EnvironmentAttribute<java.lang.Boolean> WATER_EVAPORATES / PIGLINS_ZOMBIFY",
+   "notes": "Both .syncable(). WATER_EVAPORATES defaultValue(false), nether sets true. PIGLINS_ZOMBIFY defaultValue(true), nether sets false. Equivalent client-readable nether proxies. BED_RULE, by contrast, is NOT syncable, so the client cannot read 'bed explodes' either.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.data.worldgen.DimensionTypes",
+   "member": "public static void bootstrap(net.minecraft.data.worldgen.BootstrapContext<net.minecraft.world.level.dimension.DimensionType>)",
+   "notes": "Ground truth for RESPAWN_ANCHOR_WORKS: overworldAttributes sets it false (shared by minecraft:overworld and minecraft:overworld_caves); minecraft:the_nether sets true; minecraft:the_end sets false.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.resources.RegistryDataLoader",
+   "member": "public static final java.util.List<net.minecraft.resources.RegistryDataLoader$RegistryData<?>> SYNCHRONIZED_REGISTRIES",
+   "notes": "Contains 'new RegistryData(Registries.DIMENSION_TYPE, DimensionType.NETWORK_CODEC)'. WORLDGEN_REGISTRIES (server/datapack side) uses DimensionType.DIRECT_CODEC instead. This is the exact point where the client loses non-syncable attributes.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.resources.NetworkRegistryLoadTask",
+   "member": "public java.util.concurrent.CompletableFuture<?> load(net.minecraft.resources.RegistryOps$RegistryInfoLookup, java.util.concurrent.Executor)",
+   "notes": "Uses this.data.elementCodec() for BOTH branches — PendingRegistration.loadFromNetwork(...) when the packet carried contents, and PendingRegistration.findAndLoadFromResource(..., knownDataPathConverter, knownDataSource) when contents were skipped because the client shares the KnownPack. So even the locally-read vanilla dimension_type JSON is decoded through NETWORK_CODEC and stripped.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.RegistryDataCollector",
+   "member": "RegistryDataLoader.load(entriesToLoad, knownDataSource, contextRegistriesWithTags, RegistryDataLoader.SYNCHRONIZED_REGISTRIES, Util.backgroundExecutor())",
+   "notes": "The client-side call site proving the client builds its dimension_type registry with SYNCHRONIZED_REGISTRIES (hence NETWORK_CODEC). Applies in singleplayer too — RegistrySynchronization.packRegistry encodes with registryData.elementCodec() into an NBT Tag before the client decodes it.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.Level",
+   "member": "public void explode(net.minecraft.world.entity.Entity, net.minecraft.world.damagesource.DamageSource, net.minecraft.world.level.ExplosionDamageCalculator, net.minecraft.world.phys.Vec3, float, boolean, net.minecraft.world.level.Level$ExplosionInteraction)",
+   "notes": "The overload RespawnAnchorBlock.explode uses. Decompiled param names: (source, damageSource, @Nullable damageCalculator, boomPos, r, fire, blockInteraction). It forwards to the 13-arg abstract explode with ParticleTypes.EXPLOSION, ParticleTypes.EXPLOSION_EMITTER, DEFAULT_EXPLOSION_BLOCK_PARTICLES, SoundEvents.GENERIC_EXPLODE. Only ServerLevel implements the abstract one meaningfully.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.Level$ExplosionInteraction",
+   "member": "public static final net.minecraft.world.level.Level$ExplosionInteraction NONE / BLOCK / MOB / TNT / TRIGGER",
+   "notes": "The anchor passes BLOCK.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.damagesource.DamageSources",
+   "member": "public net.minecraft.world.damagesource.DamageSource badRespawnPointExplosion(net.minecraft.world.phys.Vec3)",
+   "notes": "Reached via level.damageSources(); Level.damageSources() is public and non-abstract, so it exists on ClientLevel too.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.ExplosionDamageCalculator",
+   "member": "public java.util.Optional<java.lang.Float> getBlockExplosionResistance(net.minecraft.world.level.Explosion, net.minecraft.world.level.BlockGetter, net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState, net.minecraft.world.level.material.FluidState)",
+   "notes": "The anchor passes an anonymous subclass overriding ONLY this method: return testPos.equals(pos) && inWater ? Optional.of(Blocks.WATER.getExplosionResistance()) : super.getBlockExplosionResistance(...). Everything else (shouldBlockExplode, shouldDamageEntity, getKnockbackMultiplier, getEntityDamageAmount) is vanilla default.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.Block",
+   "member": "public float getExplosionResistance()",
+   "notes": "For Blocks.WATER this is 100.0F: Blocks.WATER is registered with Properties.of()...strength(100.0F)..., and BlockBehaviour.Properties.strength(float destroyTime) delegates to strength(destroyTime, destroyTime), setting explosionResistance too.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.InteractionResult",
+   "member": "SUCCESS / SUCCESS_SERVER / CONSUME (all InteractionResult$Success) ; FAIL (Fail) ; PASS (Pass) ; TRY_WITH_EMPTY_HAND (TryEmptyHandInteraction)",
+   "notes": "sealed interface. Success.consumesAction() returns true — so SUCCESS, SUCCESS_SERVER and CONSUME all consume; the default consumesAction() is false, so PASS, FAIL and TRY_WITH_EMPTY_HAND do not. SUCCESS = SwingSource.CLIENT, SUCCESS_SERVER = SwingSource.SERVER, CONSUME = SwingSource.NONE.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase",
+   "member": "public net.minecraft.world.InteractionResult useItemOn(net.minecraft.world.item.ItemStack, net.minecraft.world.level.Level, net.minecraft.world.entity.player.Player, net.minecraft.world.InteractionHand, net.minecraft.world.phys.BlockHitResult) / public net.minecraft.world.InteractionResult useWithoutItem(net.minecraft.world.level.Level, net.minecraft.world.entity.player.Player, net.minecraft.world.phys.BlockHitResult)",
+   "notes": "The public entry points (note: no BlockPos and no BlockState param — both come from the state and the BlockHitResult).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "private net.minecraft.world.InteractionResult performUseItemOn(net.minecraft.client.player.LocalPlayer, net.minecraft.world.InteractionHand, net.minecraft.world.phys.BlockHitResult)",
+   "notes": "Proves the client really does run both hooks inside startPrediction: 'InteractionResult itemUse = blockState.useItemOn(...); if (itemUse.consumesAction()) return itemUse; if (itemUse instanceof TryEmptyHandInteraction && hand == InteractionHand.MAIN_HAND) { InteractionResult use = blockState.useWithoutItem(this.minecraft.level, player, blockHit); ... }'. Skipped entirely when player.isSecondaryUseActive() && something is held in either hand.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.server.level.ServerPlayerGameMode",
+   "member": "InteractionResult itemUse = state.useItemOn(...); if (itemUse instanceof TryEmptyHandInteraction && hand == InteractionHand.MAIN_HAND) { InteractionResult use = state.useWithoutItem(level, player, hitResult); ... }",
+   "notes": "The server-side twin of the same dispatch. The MAIN_HAND guard is why an off-hand-only interaction can never trigger the explode/set-spawn branch.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "public boolean hasSingleplayerServer() / public net.minecraft.client.server.IntegratedServer getSingleplayerServer()",
+   "notes": "IntegratedServer extends net.minecraft.server.MinecraftServer (verified). Combine with MinecraftServer.getLevel(ResourceKey<Level>) to obtain a real ServerLevel and call the authoritative canSetSpawn from a dev/singleplayer client. Cross-thread: that ServerLevel belongs to the integrated server thread.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.server.MinecraftServer",
+   "member": "public net.minecraft.server.level.ServerLevel getLevel(net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>)",
+   "notes": "Returns null for an unloaded dimension key.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.server.level.ServerPlayer",
+   "member": "public net.minecraft.server.level.ServerPlayer$RespawnConfig getRespawnConfig() / public void setRespawnPosition(net.minecraft.server.level.ServerPlayer$RespawnConfig, boolean)",
+   "notes": "RespawnConfig is a record (LevelData$RespawnData respawnData, boolean forced) with public boolean isSamePosition(RespawnConfig). The anchor builds new RespawnConfig(RespawnData.of(serverLevel.dimension(), pos, 0.0F, 0.0F), false).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.level.storage.LevelData$RespawnData",
+   "member": "public static net.minecraft.world.level.storage.LevelData$RespawnData of(net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>, net.minecraft.core.BlockPos, float, float)",
+   "notes": "New in the 26.2 respawn refactor; replaces the old dimension+pos+angle+forced parameter soup on setRespawnPosition.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.sounds.SoundEvents",
+   "member": "public static final net.minecraft.sounds.SoundEvent RESPAWN_ANCHOR_AMBIENT / RESPAWN_ANCHOR_CHARGE / RESPAWN_ANCHOR_SET_SPAWN ; public static final net.minecraft.core.Holder$Reference<net.minecraft.sounds.SoundEvent> RESPAWN_ANCHOR_DEPLETE",
+   "notes": "Note the type asymmetry: DEPLETE is a Holder.Reference<SoundEvent>, the other three are bare SoundEvent. DEPLETE is not used by RespawnAnchorBlock at all.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.ItemStack",
+   "member": "public void consume(int, net.minecraft.world.entity.LivingEntity)",
+   "notes": "Second arg is @Nullable LivingEntity; useItemOn passes the player.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.item.Items",
+   "member": "public static final net.minecraft.world.item.Item GLOWSTONE",
+   "verified": true
+  }
+ ],
+ "gotchas": [
+  "Q1 — the biggest structural change: useItemOn no longer explodes or sets spawn. In 26.2 RespawnAnchorBlock.useItemOn does exactly one thing, charging, and everything else lives in useWithoutItem. Full tree. (a) CHARGE: useItemOn, when isRespawnFuel(itemStack) && canBeCharged(state) -> charge(player, level, pos, state); itemStack.consume(1, player); returns InteractionResult.SUCCESS. There is no isClientSide gate, so this body also runs on the client inside MultiPlayerGameMode.startPrediction. (b) EXPLODE: useWithoutItem, when state.getValue(CHARGE) != 0 && level instanceof ServerLevel && !canSetSpawn(serverLevel, pos) -> this.explode(state, serverLevel, pos); returns InteractionResult.SUCCESS_SERVER. (c) SET SPAWN: useWithoutItem, when charge != 0 && ServerLevel && canSetSpawn && player instanceof ServerPlayer && (getRespawnConfig() == null || !isSamePosition(newConfig)) -> setRespawnPosition(newConfig, true) + RESPAWN_ANCHOR_SET_SPAWN sound; returns SUCCESS_SERVER. (d) NOTHING: useWithoutItem returns PASS when charge == 0; returns CONSUME on the client (level is not a ServerLevel); returns CONSUME when the spawn point is already this exact position or the player is not a ServerPlayer. useItemOn returns PASS in exactly one case — hand == MAIN_HAND && off-hand holds glowstone && canBeCharged — which deliberately lets the interaction fall through so the off-hand pass does the charging; otherwise it returns TRY_WITH_EMPTY_HAND, which is what makes the caller invoke useWithoutItem.",
+  "Q1 corollary — a full (4-charge) anchor with glowstone in hand still explodes/sets spawn. isRespawnFuel is true but canBeCharged is false, so useItemOn falls to the ternary, whose canBeCharged term is also false, so it returns TRY_WITH_EMPTY_HAND and useWithoutItem runs. Also, useWithoutItem is only reached when hand == InteractionHand.MAIN_HAND (guard in both ServerPlayerGameMode and MultiPlayerGameMode), so an off-hand-only interaction can never explode an anchor. And nothing in useWithoutItem decrements CHARGE — setting spawn does not consume a charge.",
+  "Q2 — a 1-charge anchor explodes exactly as hard as a 4-charge one. explode() never reads CHARGE (it removes the block first with level.removeBlock(pos, false), so the state param is effectively unused for scaling). Exact call: level.explode(null, level.damageSources().badRespawnPointExplosion(boomPos), damageCalculator, boomPos, 5.0F, true, ExplosionInteraction.BLOCK) with boomPos = Vec3.atCenterOf(pos). So radius/power = 5.0F, fire = true, interaction = BLOCK, source entity = null. The ExplosionDamageCalculator is an anonymous subclass that overrides only getBlockExplosionResistance, returning Optional.of(Blocks.WATER.getExplosionResistance()) (= 100.0F) when testPos.equals(pos) && inWater, and super otherwise — so it damps block-breaking only at the anchor's own position, and does not change entity damage or knockback.",
+  "Q6 — isWaterThatWouldFlow does NOT gate charging, and does NOT prevent the explosion. It is called only inside explode(), after the block is already removed, to compute inWater = (any HORIZONTAL neighbour isWaterThatWouldFlow) || level.getFluidState(pos.above()).is(FluidTags.WATER). Its only effect is the 100.0F resistance substitution at the anchor position described above. The charging path (isRespawnFuel + canBeCharged) never touches fluids at all, so water adjacency neither blocks nor allows charging.",
+  "Q5 — the headline client-side trap. canSetSpawn's whole body is level.environmentAttributes().getValue(EnvironmentAttributes.RESPAWN_ANCHOR_WORKS, pos), and Level.environmentAttributes() is public abstract with a public ClientLevel override, so calling that exact expression on a ClientLevel COMPILES AND RUNS — and always returns false, in every dimension, including the Nether. RESPAWN_ANCHOR_WORKS is registered without .syncable(); DimensionType is synced to the client with DimensionType.NETWORK_CODEC (RegistryDataLoader.SYNCHRONIZED_REGISTRIES), which uses EnvironmentAttributeMap.NETWORK_CODEC = CODEC.xmap(filterSyncable, filterSyncable); filterSyncable drops every non-syncable key on decode as well as encode. NetworkRegistryLoadTask applies the same elementCodec to the local known-pack JSON path, so the stripping happens in singleplayer too. With no layer registered, EnvironmentAttributeSystem.getValue falls back to attribute.defaultValue(), which is false. This fails silently — no exception, no log line, just a wrong boolean.",
+  "Q5 — the other trap on the same call: RESPAWN_ANCHOR_WORKS never calls .notPositional(), and EnvironmentAttribute.Builder defaults isPositional = true. EnvironmentAttributeSystem.getDimensionValue throws IllegalStateException(\"Position must always be provided for positional attribute ...\") whenever SharedConstants.IS_RUNNING_IN_IDE — i.e. it throws in a Loom dev client but not in a shipped jar. Always use the getValue(attribute, BlockPos) overload for this attribute.",
+  "Q5 — what a ClientLevel can actually call, in order of correctness. (1) Authoritative, dev/singleplayer only: if (Minecraft.getInstance().hasSingleplayerServer()) { ServerLevel sl = Minecraft.getInstance().getSingleplayerServer().getLevel(clientLevel.dimension()); if (sl != null) return RespawnAnchorBlock.canSetSpawn(sl, pos); } — real server data, but that ServerLevel is owned by the integrated server thread, so treat it as a read-only probe and do not touch it from a render callback. (2) Multiplayer-safe proxy: clientLevel.environmentAttributes().getDimensionValue(EnvironmentAttributes.FAST_LAVA) — FAST_LAVA is .notPositional().syncable() (so both readable and legal via getDimensionValue) and in DimensionTypes.bootstrap only minecraft:the_nether sets it true, which is also the only dimension setting RESPAWN_ANCHOR_WORKS true. WATER_EVAPORATES (syncable, nether-only true) and PIGLINS_ZOMBIFY (syncable, nether sets false) work identically. (3) clientLevel.dimension() == Level.NETHER — exact for the vanilla dimension set, blind to datapack dimensions. (4) Do NOT use dimensionType().hasCeiling(): it is also true for minecraft:overworld_caves, which sets RESPAWN_ANCHOR_WORKS=false. There is no fully general client-visible answer, because a datapack can set respawn_anchor_works on a custom dimension and that value is never transmitted.",
+  "Q3 — isRespawnFuel is one line: itemInHand.is(Items.GLOWSTONE). Glowstone the block item only; there is no tag, no ItemTags indirection, and glowstone dust does not work. The method is private static, so a mod has to re-implement the check rather than call it.",
+  "Q4 — canBeCharged is one line: state.getValue(CHARGE) < 4, with the literal 4 rather than MAX_CHARGES. Also private static. Reproduce as state.getValue(RespawnAnchorBlock.CHARGE) < RespawnAnchorBlock.MAX_CHARGES.",
+  "Q7 — RespawnAnchorBlock.CHARGE is BlockStateProperties.RESPAWN_ANCHOR_CHARGES = IntegerProperty.create(\"charges\", 0, 4): blockstate key \"charges\", values 0 through 4 inclusive (5 states). BlockStateProperties also exposes MIN_RESPAWN_ANCHOR_CHARGES = 0 and MAX_RESPAWN_ANCHOR_CHARGES = 4, mirrored on the block as MIN_CHARGES/MAX_CHARGES. state.getValue(CHARGE) returns Integer, so a raw == comparison against a boxed value is a bug; compare as int.",
+  "Other 26.2 renames that will bite a port: DimensionType is now a record and has lost both respawnAnchorWorks() and bedWorks() — bed behaviour moved to EnvironmentAttributes.BED_RULE (a BedRule enum, values include CAN_SLEEP_WHEN_DARK and EXPLODES), which like RESPAWN_ANCHOR_WORKS is NOT syncable, so the client cannot read 'beds explode here' either. ServerPlayer.setRespawnPosition now takes (ServerPlayer.RespawnConfig, boolean) built from LevelData.RespawnData.of(ResourceKey<Level>, BlockPos, float, float). InteractionResult is a sealed interface, not an enum — SUCCESS_SERVER and TRY_WITH_EMPTY_HAND are new, and TRY_WITH_EMPTY_HAND is the only value that triggers the useWithoutItem fallback, so a mixin that returns FAIL or PASS from useItemOn silently disables the explode path.",
+  "Uncallable-as-written summary: RespawnAnchorBlock.explode is private, an instance method, and takes ServerLevel — three separate reasons a client mod cannot reach it. canSetSpawn is public static but its ServerLevel parameter makes it uncallable with a ClientLevel. isRespawnFuel, canBeCharged and isWaterThatWouldFlow are all private static. Only charge(), CHARGE, MIN_CHARGES/MAX_CHARGES, getScaledChargeLevel and findStandUpPosition (CollisionGetter, so ClientLevel-friendly) are genuinely public API."
+ ],
+ "usage": "// Client-side probe: would using a CHARGED respawn anchor at pos explode it?\n// Only symbols verified against the 26.2 jars in this run are used.\n//\n// Why not just call RespawnAnchorBlock.canSetSpawn: it needs a ServerLevel, and its\n// body (level.environmentAttributes().getValue(RESPAWN_ANCHOR_WORKS, pos)) does compile\n// against a ClientLevel but always yields the attribute default false, because\n// RESPAWN_ANCHOR_WORKS is not .syncable() and DimensionType reaches the client through\n// DimensionType.NETWORK_CODEC -> EnvironmentAttributeMap.NETWORK_CODEC -> filterSyncable.\n\nimport net.minecraft.client.Minecraft;\nimport net.minecraft.client.multiplayer.ClientLevel;\nimport net.minecraft.core.BlockPos;\nimport net.minecraft.server.level.ServerLevel;\nimport net.minecraft.world.attribute.EnvironmentAttributes;\nimport net.minecraft.world.level.Level;\nimport net.minecraft.world.level.block.RespawnAnchorBlock;\nimport net.minecraft.world.level.block.state.BlockState;\n\npublic final class AnchorProbe {\n\n    /** Charge level 0..4, straight off the client's own blockstate copy. */\n    public static int charges(BlockState state) {\n        return state.getValue(RespawnAnchorBlock.CHARGE);\n    }\n\n    public static boolean isChargeable(BlockState state) {\n        // canBeCharged is private static; this is its exact check.\n        return charges(state) < RespawnAnchorBlock.MAX_CHARGES;\n    }\n\n    /** True if using this anchor here would explode instead of setting spawn. */\n    public static boolean wouldExplode(ClientLevel level, BlockPos pos, BlockState state) {\n        if (charges(state) == 0) {\n            return false; // useWithoutItem returns PASS at charge 0 - nothing happens.\n        }\n        return !anchorWorksHere(level, pos);\n    }\n\n    private static boolean anchorWorksHere(ClientLevel level, BlockPos pos) {\n        Minecraft mc = Minecraft.getInstance();\n        if (mc.hasSingleplayerServer()) {\n            // Authoritative. Note: this ServerLevel is owned by the integrated server\n            // thread - read-only probe only, never call this from a render callback.\n            ServerLevel serverLevel = mc.getSingleplayerServer().getLevel(level.dimension());\n            if (serverLevel != null) {\n                return RespawnAnchorBlock.canSetSpawn(serverLevel, pos);\n            }\n        }\n\n        // Multiplayer fallback. FAST_LAVA is .notPositional().syncable(), so it both\n        // survives the network codec and is legal via getDimensionValue (RESPAWN_ANCHOR_WORKS\n        // is positional and would throw IllegalStateException in a dev client). In vanilla\n        // DimensionTypes.bootstrap, only minecraft:the_nether sets FAST_LAVA true - the same\n        // dimension that is the only one setting RESPAWN_ANCHOR_WORKS true.\n        if (level.environmentAttributes().getDimensionValue(EnvironmentAttributes.FAST_LAVA)) {\n            return true;\n        }\n        return level.dimension() == Level.NETHER;\n    }\n\n    /** Blast radius the explosion would use - fixed, not scaled by charge level. */\n    public static float explosionPower() {\n        return 5.0F; // RespawnAnchorBlock.explode: level.explode(..., 5.0F, true, BLOCK)\n    }\n}"
+}

@@ -1,0 +1,503 @@
+{
+ "area": "Minecraft 26.2 (Mojang official mappings) — hotbar / inventory / hand access, interaction range, InteractionHand + InteractionResult",
+ "signatures": [
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "private int selected;",
+   "notes": "PRIVATE in 26.2. Direct field access (`inv.selected`) does NOT compile from mod code. Class decl: `public class net.minecraft.world.entity.player.Inventory implements net.minecraft.world.Container,net.minecraft.world.Nameable`.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public int getSelectedSlot();",
+   "notes": "The read accessor. Body: `return this.selected;`",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public void setSelectedSlot(int);",
+   "notes": "The write accessor. Verified body: `if (!isHotbarSlot(selected)) { throw new IllegalArgumentException(\"Invalid selected slot\"); } else { this.selected = selected; }` — it does NOT clamp, it THROWS. No setChanged(), no packet, no dirty marking.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public net.minecraft.world.item.ItemStack getSelectedItem();",
+   "notes": "Body: `return this.items.get(this.selected);`. Identical to LivingEntity.getMainHandItem() for a Player (PlayerEquipment routes MAINHAND here).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public net.minecraft.world.item.ItemStack setSelectedItem(net.minecraft.world.item.ItemStack);",
+   "notes": "REPLACES the stack in the selected slot and returns the old one (`this.items.set(this.selected, itemStack)`). Not a 'select' helper.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public static boolean isHotbarSlot(int);",
+   "notes": "STATIC. Body: `return slot >= 0 && slot < 9;`. Call as Inventory.isHotbarSlot(i). Use it as a guard before setSelectedSlot.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public static int getSelectionSize();",
+   "notes": "STATIC, body `return 9;`",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public static final int SELECTION_SIZE = 9;",
+   "notes": "javap -constants confirmed value 9.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public static final int INVENTORY_SIZE = 36;",
+   "notes": "Size of the non-equipment `items` list (`NonNullList.withSize(36, ItemStack.EMPTY)`).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public static final int SLOT_OFFHAND = 40;",
+   "notes": "Value 40. `getItem(40)` maps through EQUIPMENT_SLOT_MAPPING to EquipmentSlot.OFFHAND.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public static final int SLOT_BODY_ARMOR = 41;",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public static final int SLOT_SADDLE = 42;",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public static final int NOT_FOUND_INDEX = -1;",
+   "notes": "Returned by findSlotMatchingItem / getFreeSlot / getSlotWithRemainingSpace.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public static final int POP_TIME_DURATION = 5;",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public static final it.unimi.dsi.fastutil.ints.Int2ObjectMap<net.minecraft.world.entity.EquipmentSlot> EQUIPMENT_SLOT_MAPPING;",
+   "notes": "Verified contents: 36=FEET, 37=LEGS, 38=CHEST, 39=HEAD (via EquipmentSlot.getIndex(36)), 40=OFFHAND, 41=BODY, 42=SADDLE. size()==7.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public net.minecraft.world.item.ItemStack getItem(int);",
+   "notes": "Container method — the by-index read. Body: `if (slot < this.items.size()) return this.items.get(slot); else { EquipmentSlot es = EQUIPMENT_SLOT_MAPPING.get(slot); return es != null ? this.equipment.get(es) : ItemStack.EMPTY; }` — returns EMPTY rather than throwing for unmapped indices >= 36. Negative indices WILL throw from NonNullList.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public void setItem(int, net.minecraft.world.item.ItemStack);",
+   "notes": "Writes items list for slot < 36, and additionally applies EQUIPMENT_SLOT_MAPPING when the index maps (36-42).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public int getContainerSize();",
+   "notes": "Body: `return this.items.size() + EQUIPMENT_SLOT_MAPPING.size();` = 36 + 7 = 43.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public int findSlotMatchingItem(net.minecraft.world.item.ItemStack);",
+   "notes": "Verified body: loops `this.items` (36 slots only, hotbar 0-8 then 9-35), skips empty, matches with `ItemStack.isSameItemSameComponents(itemStack, items.get(i))`, returns -1 if absent. Never returns an equipment/offhand index.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public int findSlotMatchingCraftingIngredient(net.minecraft.core.Holder<net.minecraft.world.item.Item>, net.minecraft.world.item.ItemStack);",
+   "notes": "Holder<Item>-based variant; also scans only the 36 non-equipment slots.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public int getFreeSlot();",
+   "notes": "First empty index in the 36 main slots, else -1.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public int getSuitableHotbarSlot();",
+   "notes": "Scans 9 hotbar slots starting at `selected` for an empty one, then for a non-enchanted one, else returns `selected`.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public void pickSlot(int);",
+   "notes": "MUTATES CONTENTS: `setSelectedSlot(getSuitableHotbarSlot()); ` then swaps items[selected] with items[slot]. Not a silent selection change.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public int getSlotWithRemainingSpace(net.minecraft.world.item.ItemStack);",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public boolean contains(net.minecraft.world.item.ItemStack);",
+   "notes": "Overloads also exist: `contains(net.minecraft.tags.TagKey<net.minecraft.world.item.Item>)` and `contains(java.util.function.Predicate<net.minecraft.world.item.ItemStack>)`.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public net.minecraft.core.NonNullList<net.minecraft.world.item.ItemStack> getNonEquipmentItems();",
+   "notes": "Live 36-element backing list. The old `main` / `armor` / `offhand` public NonNullList fields are gone; armor+offhand live in a private `EntityEquipment equipment` field.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public net.minecraft.world.item.ItemStack removeFromSelected(boolean);",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public void setChanged();",
+   "notes": "Only bumps the private `timesChanged` counter; readable via `public int getTimesChanged();`. setSelectedSlot does NOT call it.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Inventory",
+   "member": "public net.minecraft.world.entity.player.Inventory(net.minecraft.world.entity.player.Player, net.minecraft.world.entity.EntityEquipment);",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public net.minecraft.world.entity.player.Inventory getInventory();",
+   "notes": "Exact return type is net.minecraft.world.entity.player.Inventory (no interface, no Optional). Not overridden in LocalPlayer.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public abstract class net.minecraft.world.entity.player.Player extends net.minecraft.world.entity.Avatar implements net.minecraft.world.entity.ContainerUser",
+   "notes": "26.2 inserted net.minecraft.world.entity.Avatar between Player and LivingEntity (`public abstract class net.minecraft.world.entity.Avatar extends net.minecraft.world.entity.LivingEntity`). Avatar declares no createAttributes and no hand/range members.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public double blockInteractionRange();",
+   "notes": "26.2 NAME — no `get` prefix, returns double. Verified body: `return this.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);`. `getBlockInteractionRange()` does not exist.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public double entityInteractionRange();",
+   "notes": "26.2 NAME. Verified body: `return this.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);`.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public double getContainerInteractionRange();",
+   "notes": "Body: `return this.blockInteractionRange();`",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public boolean isWithinEntityInteractionRange(net.minecraft.world.entity.Entity, double);",
+   "notes": "Second arg is a `buffer`. Returns false if `entity.isRemoved()`, otherwise delegates to the AABB overload with entity.getBoundingBox().",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public boolean isWithinEntityInteractionRange(net.minecraft.world.phys.AABB, double);",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public boolean isWithinBlockInteractionRange(net.minecraft.core.BlockPos, double);",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public boolean isWithinAttackRange(net.minecraft.world.item.ItemStack, net.minecraft.world.phys.AABB, double);",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public static final float DEFAULT_BLOCK_INTERACTION_RANGE = 4.5f;",
+   "notes": "javap -constants. Note: float constant vs double accessor.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public static final float DEFAULT_ENTITY_INTERACTION_RANGE = 3.0f;",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public static final float CREATIVE_ENTITY_INTERACTION_RANGE_MODIFIER_VALUE = 2.0f;",
+   "notes": "Only consumed server-side by ServerPlayer's creative entity-range modifier.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public static final int HELD_ITEM_SLOT = 499;",
+   "notes": "Creative-container slot id, NOT a hotbar index. CRAFTING_SLOT_OFFSET = 500, ENDER_SLOT_OFFSET = 200, MAX_HEALTH = 20, SLEEP_DURATION = 100, WAKE_UP_DURATION = 10.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public static net.minecraft.world.entity.ai.attributes.AttributeSupplier$Builder createAttributes();",
+   "notes": "Verified body adds: ATTACK_DAMAGE 1.0, MOVEMENT_SPEED 0.1F, ATTACK_SPEED, LUCK, BLOCK_INTERACTION_RANGE (no override -> attribute default 4.5), BLOCK_BREAK_SPEED, SUBMERGED_MINING_SPEED, SNEAKING_SPEED, MINING_EFFICIENCY, SWEEPING_DAMAGE_RATIO, WAYPOINT_TRANSMIT_RANGE 6.0E7, WAYPOINT_RECEIVE_RANGE 6.0E7 — on top of LivingEntity.createLivingAttributes(). It does NOT add ENTITY_INTERACTION_RANGE.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.Player",
+   "member": "public abstract net.minecraft.world.level.GameType gameMode();",
+   "notes": "Also `public boolean isCreative();`, `public boolean isSpectator();`, `public boolean hasInfiniteMaterials();`, `public net.minecraft.world.entity.player.Abilities getAbilities();`.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.player.PlayerEquipment",
+   "member": "public net.minecraft.world.item.ItemStack get(net.minecraft.world.entity.EquipmentSlot);",
+   "notes": "Verified body: `slot == EquipmentSlot.MAINHAND ? this.player.getInventory().getSelectedItem() : super.get(slot)`. This is why getMainHandItem() == inventory.getSelectedItem(). `set(...)` likewise routes MAINHAND to inventory.setSelectedItem(...).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public net.minecraft.world.item.ItemStack getItemInHand(net.minecraft.world.InteractionHand);",
+   "notes": "Declared on LivingEntity, not Player. Verified body: MAIN_HAND -> getItemBySlot(EquipmentSlot.MAINHAND), OFF_HAND -> getItemBySlot(EquipmentSlot.OFFHAND), else `throw new IllegalArgumentException(\"Invalid hand \" + hand)`.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public net.minecraft.world.item.ItemStack getOffhandItem();",
+   "notes": "The offhand accessor. Body: `return this.getItemBySlot(EquipmentSlot.OFFHAND);`. There is no Inventory.getOffhandItem().",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public net.minecraft.world.item.ItemStack getMainHandItem();",
+   "notes": "Body: `return this.getItemBySlot(EquipmentSlot.MAINHAND);`",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public net.minecraft.world.item.ItemStack getItemBySlot(net.minecraft.world.entity.EquipmentSlot);",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public double getAttributeValue(net.minecraft.core.Holder<net.minecraft.world.entity.ai.attributes.Attribute>);",
+   "notes": "Holder-based, not Attribute-based. Also `getAttributeBaseValue(Holder<Attribute>)` and `getAttribute(Holder<Attribute>)` -> AttributeInstance, and `getAttributes()` -> AttributeMap.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public static net.minecraft.world.entity.ai.attributes.AttributeSupplier$Builder createLivingAttributes();",
+   "notes": "Verified body includes `.add(Attributes.ENTITY_INTERACTION_RANGE)` with no value override — that is where the player's 3.0 entity range comes from.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.LivingEntity",
+   "member": "public void swing(net.minecraft.world.InteractionHand);",
+   "notes": "Also `swing(InteractionHand, boolean)`. LocalPlayer overrides `public void swing(net.minecraft.world.InteractionHand);` to also send the swing packet.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.ai.attributes.Attributes",
+   "member": "public static final net.minecraft.core.Holder<net.minecraft.world.entity.ai.attributes.Attribute> BLOCK_INTERACTION_RANGE;",
+   "notes": "Registration verified: `register(\"block_interaction_range\", new RangedAttribute(\"attribute.name.block_interaction_range\", 4.5, 0.0, 64.0).setSyncable(true))` — DEFAULT 4.5, min 0.0, max 64.0, syncable.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.ai.attributes.Attributes",
+   "member": "public static final net.minecraft.core.Holder<net.minecraft.world.entity.ai.attributes.Attribute> ENTITY_INTERACTION_RANGE;",
+   "notes": "Registration verified: `register(\"entity_interaction_range\", new RangedAttribute(\"attribute.name.entity_interaction_range\", 3.0, 0.0, 64.0).setSyncable(true))` — DEFAULT 3.0, min 0.0, max 64.0, syncable.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.server.level.ServerPlayer",
+   "member": "private static final net.minecraft.world.entity.ai.attributes.AttributeModifier CREATIVE_BLOCK_INTERACTION_RANGE_MODIFIER;",
+   "notes": "SERVER-ONLY. Verified init: `new AttributeModifier(Identifier.withDefaultNamespace(\"creative_mode_block_range\"), 0.5, Operation.ADD_VALUE)` -> creative block range = 4.5 + 0.5 = 5.0.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.server.level.ServerPlayer",
+   "member": "private static final net.minecraft.world.entity.ai.attributes.AttributeModifier CREATIVE_ENTITY_INTERACTION_RANGE_MODIFIER;",
+   "notes": "SERVER-ONLY. Verified init: `new AttributeModifier(Identifier.withDefaultNamespace(\"creative_mode_entity_range\"), 2.0, Operation.ADD_VALUE)` -> creative entity range = 3.0 + 2.0 = 5.0.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.server.level.ServerPlayer",
+   "member": "private void updatePlayerAttributes();",
+   "notes": "SERVER-ONLY, private, called from ServerPlayer.tick(). addOrUpdateTransientModifier when isCreative(), removeModifier otherwise, for both BLOCK_ and ENTITY_INTERACTION_RANGE. Client cannot call this; it observes the result through the syncable attribute.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.InteractionHand",
+   "member": "public static final net.minecraft.world.InteractionHand MAIN_HAND;",
+   "notes": "Still a plain enum: `public final class net.minecraft.world.InteractionHand extends java.lang.Enum<net.minecraft.world.InteractionHand>`.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.InteractionHand",
+   "member": "public static final net.minecraft.world.InteractionHand OFF_HAND;",
+   "notes": "Exactly two constants. values()/valueOf(String) present.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.InteractionHand",
+   "member": "public net.minecraft.world.entity.EquipmentSlot asEquipmentSlot();",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.InteractionHand",
+   "member": "public static final net.minecraft.network.codec.StreamCodec<io.netty.buffer.ByteBuf, net.minecraft.world.InteractionHand> STREAM_CODEC;",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.InteractionResult",
+   "member": "public sealed interface InteractionResult permits InteractionResult.Success, InteractionResult.Fail, InteractionResult.Pass, InteractionResult.TryEmptyHandInteraction",
+   "notes": "NOT an enum in 26.2. javap prints it as `public interface net.minecraft.world.InteractionResult`; the decompiled source shows the `sealed ... permits` clause.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.InteractionResult",
+   "member": "public static final net.minecraft.world.InteractionResult$Success SUCCESS;",
+   "notes": "= new Success(SwingSource.CLIENT, ItemContext.DEFAULT)",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.InteractionResult",
+   "member": "public static final net.minecraft.world.InteractionResult$Success SUCCESS_SERVER;",
+   "notes": "= new Success(SwingSource.SERVER, ItemContext.DEFAULT)",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.InteractionResult",
+   "member": "public static final net.minecraft.world.InteractionResult$Success CONSUME;",
+   "notes": "= new Success(SwingSource.NONE, ItemContext.DEFAULT). CONSUME_PARTIAL from older versions is gone.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.InteractionResult",
+   "member": "public static final net.minecraft.world.InteractionResult$Fail FAIL;",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.InteractionResult",
+   "member": "public static final net.minecraft.world.InteractionResult$Pass PASS;",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.InteractionResult",
+   "member": "public static final net.minecraft.world.InteractionResult$TryEmptyHandInteraction TRY_WITH_EMPTY_HAND;",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.InteractionResult",
+   "member": "public default boolean consumesAction();",
+   "notes": "Default returns false; overridden to return true only in Success.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.InteractionResult$Success",
+   "member": "public net.minecraft.world.InteractionResult$Success(net.minecraft.world.InteractionResult$SwingSource, net.minecraft.world.InteractionResult$ItemContext);",
+   "notes": "record Success(SwingSource swingSource, ItemContext itemContext). Accessors: `swingSource()`, `itemContext()`, `wasItemInteraction()`, `@Nullable heldItemTransformedTo()`, plus `Success heldItemTransformedTo(ItemStack)` and `Success withoutItem()`.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.InteractionResult$SwingSource",
+   "member": "public static final net.minecraft.world.InteractionResult$SwingSource NONE; CLIENT; SERVER;",
+   "notes": "Nested enum with exactly those three constants.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.InteractionResult$ItemContext",
+   "member": "public net.minecraft.world.InteractionResult$ItemContext(boolean, net.minecraft.world.item.ItemStack);",
+   "notes": "record ItemContext(boolean wasItemInteraction, @Nullable ItemStack heldItemTransformedTo). Constants: NONE = (false, null), DEFAULT = (true, null). NOTE: ItemContext does NOT implement InteractionResult.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.InteractionResult$Fail",
+   "member": "public net.minecraft.world.InteractionResult$Fail();",
+   "notes": "Empty record. Pass and TryEmptyHandInteraction are likewise empty records.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "public static net.minecraft.client.Minecraft getInstance();",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "public net.minecraft.client.player.LocalPlayer player;",
+   "notes": "Public field, nullable.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.Minecraft",
+   "member": "public net.minecraft.client.multiplayer.MultiPlayerGameMode gameMode;",
+   "notes": "Public field, nullable. Vanilla's own hotbar keybind handler does exactly `this.player.getInventory().setSelectedSlot(i);` (Minecraft.java line 2026 of the decompile).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "private void ensureHasSentCarriedItem();",
+   "notes": "Verified body: `int index = this.minecraft.player.getInventory().getSelectedSlot(); if (index != this.carriedIndex) { this.carriedIndex = index; this.connection.send(new ServerboundSetCarriedItemPacket(this.carriedIndex)); }`. Private — called from tick(), continueDestroyBlock, useItemOn, useItem (and Minecraft.tick() calls `this.gameMode.tick()`). This is why a client-side setSelectedSlot auto-syncs.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.multiplayer.MultiPlayerGameMode",
+   "member": "public net.minecraft.world.InteractionResult useItem(net.minecraft.world.entity.player.Player, net.minecraft.world.InteractionHand);",
+   "notes": "Client-visible use/interact surface. Siblings: `useItemOn(LocalPlayer, InteractionHand, BlockHitResult)`, `interact(Player, Entity, EntityHitResult, InteractionHand)`, `void attack(Player, Entity)`, `boolean startDestroyBlock(BlockPos, Direction)`, `void releaseUsingItem(Player)`.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket",
+   "member": "public net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket(int);",
+   "notes": "Public ctor + `public int getSlot();`. Only needed if you bypass MultiPlayerGameMode (e.g. you set the slot and revert it within one tick so ensureHasSentCarriedItem never observes the change).",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.ai.attributes.AttributeInstance",
+   "member": "public net.minecraft.world.entity.ai.attributes.AttributeModifier getModifier(net.minecraft.resources.Identifier);",
+   "notes": "Note the type: 26.2 uses net.minecraft.resources.Identifier where older versions used ResourceLocation. Also `hasModifier(Identifier)`, `boolean removeModifier(Identifier)`, `addOrUpdateTransientModifier(AttributeModifier)`, `double getValue()`, `getBaseValue()/setBaseValue(double)`.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.world.entity.ai.attributes.RangedAttribute",
+   "member": "public net.minecraft.world.entity.ai.attributes.RangedAttribute(java.lang.String, double, double, double);",
+   "notes": "(descriptionId, defaultValue, min, max). Plus `getMinValue()`, `getMaxValue()`, `sanitizeValue(double)`.",
+   "verified": true
+  },
+  {
+   "fqcn": "net.minecraft.client.player.LocalPlayer",
+   "member": "public class net.minecraft.client.player.LocalPlayer extends net.minecraft.client.player.AbstractClientPlayer",
+   "notes": "Declares NO inventory/hand/range members of its own — hotbar access is entirely inherited from Player/LivingEntity. Relevant client-only members it does add: `public final net.minecraft.client.multiplayer.ClientPacketListener connection;`, `public net.minecraft.client.player.ClientInput input;`, `public void startUsingItem(net.minecraft.world.InteractionHand);`, `public boolean isUsingItem();`, `public void stopUsingItem();`, `public net.minecraft.world.InteractionHand getUsedItemHand();`, `public boolean drop(boolean);`, `public boolean isHandsBusy();`, `public net.minecraft.world.phys.HitResult raycastHitResult(float, net.minecraft.world.entity.Entity);`.",
+   "verified": true
+  }
+ ],
+ "gotchas": [
+  "Q1 ANSWER: there is NO public `selected` field. javap shows `private int selected;` on Inventory. Pre-26.2 code doing `player.getInventory().selected` or `player.getInventory().selected = n` will not compile. Use `int getSelectedSlot()` / `void setSelectedSlot(int)`.",
+  "setSelectedSlot(int) does NOT clamp — it throws. Verified body: `if (!isHotbarSlot(selected)) throw new IllegalArgumentException(\"Invalid selected slot\"); else this.selected = selected;`. Valid range is 0..8 inclusive. It performs no other work: no setChanged(), no timesChanged bump, no packet, no equipment/dirty tracking. Always guard with `Inventory.isHotbarSlot(i)` (or `i >= 0 && i < Inventory.SELECTION_SIZE`) before calling, or you crash the client on a bad index.",
+  "Slot changes made from client code DO reach the server without you sending anything, but only via a private path: MultiPlayerGameMode.ensureHasSentCarriedItem() diffs getSelectedSlot() against its cached `carriedIndex` and sends ServerboundSetCarriedItemPacket. It runs from MultiPlayerGameMode.tick() (invoked by Minecraft.tick()) and at the head of continueDestroyBlock / useItemOn / useItem. Consequence for silent-switch code: if you switch slot, act, and switch back within the SAME tick before any of those run, the server never learns about the switch — send `new ServerboundSetCarriedItemPacket(slot)` yourself in that case. There is no public setSelectedSlotAndSync.",
+  "Q5 ANSWER: `getBlockInteractionRange()` / `getEntityInteractionRange()` no longer exist. 26.2 names drop the `get`: `public double blockInteractionRange()` and `public double entityInteractionRange()` on Player, both thin wrappers over `getAttributeValue(Holder<Attribute>)`. `getContainerInteractionRange()` (which returns blockInteractionRange()) is the odd one out that keeps a `get` prefix.",
+  "Real vanilla range numbers, read from the attribute registrations, not memory: BLOCK_INTERACTION_RANGE = RangedAttribute(default 4.5, min 0.0, max 64.0, syncable); ENTITY_INTERACTION_RANGE = RangedAttribute(default 3.0, min 0.0, max 64.0, syncable). Player.createAttributes() adds BLOCK_INTERACTION_RANGE with no value override (so 4.5) and does NOT add ENTITY_INTERACTION_RANGE at all — that one is inherited from LivingEntity.createLivingAttributes() (so 3.0). Player.DEFAULT_BLOCK_INTERACTION_RANGE = 4.5f and Player.DEFAULT_ENTITY_INTERACTION_RANGE = 3.0f agree.",
+  "Creative-mode range bonuses are SERVER-ONLY code: ServerPlayer.updatePlayerAttributes() (private, from ServerPlayer.tick()) applies transient ADD_VALUE modifiers `minecraft:creative_mode_block_range` (+0.5) and `minecraft:creative_mode_entity_range` (+2.0). So the real creative totals are 5.0 block and 5.0 entity — note the block bonus is +0.5, not +1.5 or +2.0. Because both attributes are setSyncable(true), a client LocalPlayer's blockInteractionRange()/entityInteractionRange() reflect these once the attribute sync packet arrives — but you must read them at use time, not cache them across gamemode changes, and client code cannot install these modifiers in a way the server honours.",
+  "Player's superclass changed: `Player extends net.minecraft.world.entity.Avatar extends LivingEntity`, and Player now `implements net.minecraft.world.entity.ContainerUser`. Anything that assumed Player's direct superclass is LivingEntity (mixin hierarchy assumptions, `super.` targets, `@Mixin(LivingEntity.class)` overlays expecting Player as the immediate subclass) needs rechecking. Avatar itself declares no createAttributes, no hand accessors, and no interaction-range members.",
+  "Q7 ANSWER: InteractionResult is NO LONGER AN ENUM. It is a `sealed interface` permitting the records Success, Fail, Pass, TryEmptyHandInteraction. So `.values()`, `.ordinal()`, `.name()`, `InteractionResult.valueOf(...)`, `switch (result) { case SUCCESS: ... }` on constants, and `EnumMap<InteractionResult, ...>` all break. `==` against the interface constants (SUCCESS, SUCCESS_SERVER, CONSUME, FAIL, PASS, TRY_WITH_EMPTY_HAND) still works since they are singletons; prefer `consumesAction()` or a pattern-matching switch on the record types. CONSUME_PARTIAL is gone. SUCCESS is `Success(SwingSource.CLIENT, ItemContext.DEFAULT)`, SUCCESS_SERVER is `Success(SwingSource.SERVER, ...)`, CONSUME is `Success(SwingSource.NONE, ...)` — i.e. CONSUME `consumesAction()` returns TRUE, only its swing source differs.",
+  "InteractionResult.Success.heldItemTransformedTo() is @Nullable (ItemContext.DEFAULT stores null). Also note `heldItemTransformedTo` is overloaded: the no-arg accessor reads it, the one-arg `heldItemTransformedTo(ItemStack)` returns a NEW Success.",
+  "InteractionHand is unchanged and still an enum with exactly MAIN_HAND and OFF_HAND, plus `asEquipmentSlot()` and a STREAM_CODEC. getItemInHand(hand) throws IllegalArgumentException for anything else, which only matters if you pass a null-ish/reflectively-obtained value.",
+  "There is no Inventory.getOffhandItem() and no public `offhand`/`armor`/`main` NonNullList fields any more — armor, offhand, body and saddle live in a private `EntityEquipment equipment` field. Offhand reads go through `LivingEntity.getOffhandItem()`, `getItemInHand(InteractionHand.OFF_HAND)`, or `inventory.getItem(Inventory.SLOT_OFFHAND /* 40 */)`.",
+  "Inventory.getItem(int) silently returns ItemStack.EMPTY for indices >= 36 that are not in EQUIPMENT_SLOT_MAPPING instead of throwing, so a wrong index gives you an empty stack rather than an exception — easy to misread as 'the slot is empty'. Negative indices still throw from the backing NonNullList. And getContainerSize() is 43 (36 + 7 equipment entries), not 36 or 41, so any loop over getContainerSize() will walk into equipment slots.",
+  "findSlotMatchingItem(ItemStack) only scans the 36 non-equipment slots and uses ItemStack.isSameItemSameComponents — component-sensitive, so a differently-enchanted/named copy will NOT match. It returns Inventory.NOT_FOUND_INDEX (-1), and can return an index in 9..35 which is NOT a hotbar slot, so you must re-check `Inventory.isHotbarSlot(found)` before feeding it to setSelectedSlot.",
+  "Inventory.pickSlot(int) is not a selection helper — it calls setSelectedSlot(getSuitableHotbarSlot()) and then SWAPS the two ItemStacks in the backing list. Calling it client-side desyncs your inventory contents from the server. Use setSelectedSlot for selection only.",
+  "Inventory.setSelectedItem(ItemStack) also reads as a selection method but is a content write (`items.set(selected, stack)`, returns the old stack). It is what PlayerEquipment.set(MAINHAND, ...) delegates to.",
+  "getMainHandItem() and inventory.getSelectedItem() are literally the same value: PlayerEquipment.get(MAINHAND) returns `player.getInventory().getSelectedItem()`. So writing the selected inventory slot changes the main-hand item and vice versa — there is no separate main-hand storage to keep in sync.",
+  "ResourceLocation is `net.minecraft.resources.Identifier` in 26.2 (seen in AttributeInstance.getModifier(Identifier), Player.awardStat(Identifier), and ServerPlayer's `Identifier.withDefaultNamespace(...)` modifier ids). Any attribute-modifier code you port must use Identifier.",
+  "Player.HELD_ITEM_SLOT = 499 and CRAFTING_SLOT_OFFSET = 500 / ENDER_SLOT_OFFSET = 200 are creative-container slot ids, not inventory indices — do not use them as hotbar or Container indices.",
+  "Server-only Player members you cannot call from client code (they take ServerLevel): `hurtServer(ServerLevel, DamageSource, float)`, `isInvulnerableTo(ServerLevel, DamageSource)`, `actuallyHurt(ServerLevel, DamageSource, float)`, `dropEquipment(ServerLevel)`, `killedEntity(ServerLevel, LivingEntity, DamageSource)`, `getBaseExperienceReward(ServerLevel)`, plus everything on ServerPlayer including updatePlayerAttributes(). The client-visible equivalents for interaction all live on Minecraft.getInstance().gameMode (MultiPlayerGameMode): useItem/useItemOn/interact/attack/startDestroyBlock/releaseUsingItem. Inventory.createInventoryUpdatePacket(int) returns a Clientbound packet and is useless from client code.",
+  "Inventory.setChanged() only increments a private `timesChanged` counter (readable via getTimesChanged()); it does not push anything to the server. There is no client-side 'sync my inventory' call — inventory mutation from the client is prediction-only and will be corrected by the server."
+ ],
+ "usage": "// All symbols below were verified via javap/Vineflower against the 26.2 loom jars in this run.\nimport net.minecraft.client.Minecraft;\nimport net.minecraft.client.player.LocalPlayer;\nimport net.minecraft.world.InteractionHand;\nimport net.minecraft.world.InteractionResult;\nimport net.minecraft.world.entity.player.Inventory;\nimport net.minecraft.world.item.ItemStack;\n\npublic final class HotbarProbe {\n\n    public static void probe() {\n        Minecraft mc = Minecraft.getInstance();\n        LocalPlayer player = mc.player;\n        if (player == null) return;\n\n        Inventory inv = player.getInventory();   // exact type: net.minecraft.world.entity.player.Inventory\n\n        // --- read the selected hotbar slot ---\n        int selected = inv.getSelectedSlot();                 // 0..8\n        ItemStack held = inv.getSelectedItem();               // identical to player.getMainHandItem()\n        ItemStack offhand = player.getOffhandItem();          // == inv.getItem(Inventory.SLOT_OFFHAND)\n        ItemStack mainByHand = player.getItemInHand(InteractionHand.MAIN_HAND);\n\n        // --- walk the hotbar by index ---\n        for (int i = 0; i < Inventory.SELECTION_SIZE; i++) {  // SELECTION_SIZE == 9\n            ItemStack stack = inv.getItem(i);\n            if (!stack.isEmpty()) {\n                // stack.getItem(), stack.getCount()\n            }\n        }\n\n        // --- find something and switch to it, guarding the throwing setter ---\n        int found = inv.findSlotMatchingItem(held);           // scans slots 0..35 only\n        if (found != Inventory.NOT_FOUND_INDEX && Inventory.isHotbarSlot(found)) {\n            inv.setSelectedSlot(found);                      // throws IllegalArgumentException outside 0..8\n            // MultiPlayerGameMode.tick() -> ensureHasSentCarriedItem() will send\n            // ServerboundSetCarriedItemPacket on the next client tick. Nothing to do here\n            // UNLESS you revert the slot within this same tick.\n        }\n\n        // --- interaction ranges (attribute-backed doubles) ---\n        double blockReach  = player.blockInteractionRange();  // 4.5 survival / 5.0 creative\n        double entityReach = player.entityInteractionRange(); // 3.0 survival / 5.0 creative\n\n        // --- InteractionResult is a sealed interface, not an enum ---\n        if (mc.gameMode != null) {\n            InteractionResult result = mc.gameMode.useItem(player, InteractionHand.MAIN_HAND);\n            boolean consumed = result.consumesAction();\n            if (result instanceof InteractionResult.Success success) {\n                InteractionResult.SwingSource swing = success.swingSource();\n                boolean wasItem = success.wasItemInteraction();\n                ItemStack transformed = success.heldItemTransformedTo(); // @Nullable\n            } else if (result == InteractionResult.PASS || result == InteractionResult.FAIL) {\n                // nothing happened\n            }\n        }\n\n        // restore the original selection\n        if (Inventory.isHotbarSlot(selected)) {\n            inv.setSelectedSlot(selected);\n        }\n    }\n}"
+}
