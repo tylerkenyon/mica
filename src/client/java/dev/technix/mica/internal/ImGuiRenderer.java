@@ -54,6 +54,7 @@ public final class ImGuiRenderer {
 
     private RenderBackend.Viewport viewport;
     private long lastFrameNanos;
+    private boolean textInputActive;
 
     public ImGuiRenderer(@NotNull MinecraftCompat compat) {
         this(compat, List.of(), RenderBackends.defaultRegistry());
@@ -156,6 +157,10 @@ public final class ImGuiRenderer {
                     ? 1.0f / 60.0f
                     : Math.min((now - lastFrameNanos) / 1_000_000_000.0f, 0.1f);
             lastFrameNanos = now;
+            double[] cursor = compat.cursorPosition();
+            if (cursor != null) {
+                ImGuiInputRouter.onMouseMove(this, cursor[0], cursor[1]);
+            }
             imGuiFrame(next.width(), next.height(), deltaTime);
             frameOpen = true;
 
@@ -203,6 +208,15 @@ public final class ImGuiRenderer {
         ImGui.render();
         if (backend != null && backend.isReadyToRender()) {
             backend.render(ImGui.getDrawData());
+        }
+        updateTextInput(ImGui.getIO().getWantTextInput());
+    }
+
+    /** Starts the platform's text input while an ImGui text field is focused (SDL, 26.3+). */
+    private void updateTextInput(boolean wanted) {
+        if (wanted != textInputActive) {
+            textInputActive = wanted;
+            compat.setTextInputActive(wanted);
         }
     }
 
@@ -312,6 +326,7 @@ public final class ImGuiRenderer {
             ImGui.endFrame();
             frameOpen = false;
         }
+        updateTextInput(false);
         if (backend != null) {
             // Outstanding MicaTextures stay usable: they re-register after a restart.
             textures.setAvailable(false);

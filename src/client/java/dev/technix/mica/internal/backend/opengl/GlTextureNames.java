@@ -1,6 +1,5 @@
-package dev.technix.mica.api.compat.v26_2;
+package dev.technix.mica.internal.backend.opengl;
 
-import com.mojang.blaze3d.textures.GpuTexture;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,19 +11,25 @@ import java.util.function.ToIntFunction;
 
 
 /**
- * Reads the OpenGL texture name out of Minecraft's {@code com.mojang.blaze3d.opengl.GlTexture}.
+ * Reads the OpenGL texture name out of Minecraft's {@code GlTexture}
+ * ({@code com.mojang.blaze3d.opengl} on 26.2, {@code com.mojang.renderpearl.backend.opengl}
+ * on 26.3), for the version compat adapters.
  *
- * <p>Since 26.1 Mojang's OpenGL backend classes are partly package-private, and they are
- * reached reflectively (Minecraft 26.x ships unobfuscated, so the names are stable) instead
- * of through a mixin accessor: a missing accessor target would fail mixin application and
- * take the Vulkan path down with it, while a failed lookup here only disables the OpenGL
- * renderer, with a log line saying why.
+ * <p>Mojang's OpenGL backend classes are partly package-private, and they are reached
+ * reflectively (Minecraft 26.x ships unobfuscated, so the names are stable) instead of
+ * through a mixin accessor: a missing accessor target would fail mixin application and take
+ * the Vulkan path down with it, while a failed lookup here only disables the OpenGL renderer,
+ * with a log line saying why. It takes {@code Object} so one copy serves every Minecraft
+ * version, whatever package its texture classes live in.
  */
-final class GlTextureNames {
+public final class GlTextureNames {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("mica");
 
-    private static final String GL_PACKAGE = "com.mojang.blaze3d.opengl.";
+    private static final String[] GL_PACKAGES = {
+            "com.mojang.blaze3d.opengl.",
+            "com.mojang.renderpearl.backend.opengl."
+    };
 
     private static final AtomicBoolean FAILURE_LOGGED = new AtomicBoolean();
 
@@ -39,8 +44,8 @@ final class GlTextureNames {
     }
 
     /** The GL texture name, or {@code 0} if {@code texture} is not an OpenGL texture. */
-    static int of(@Nullable GpuTexture texture) {
-        if (texture == null || !texture.getClass().getName().startsWith(GL_PACKAGE)) {
+    public static int of(@Nullable Object texture) {
+        if (texture == null || !isOpenGlClass(texture.getClass().getName())) {
             return 0;
         }
         try {
@@ -49,6 +54,15 @@ final class GlTextureNames {
             logFailure(texture.getClass(), exception);
             return 0;
         }
+    }
+
+    static boolean isOpenGlClass(String className) {
+        for (String prefix : GL_PACKAGES) {
+            if (className.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static ToIntFunction<Object> createReader(Class<?> type) {

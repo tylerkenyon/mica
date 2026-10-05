@@ -1,20 +1,21 @@
-//? if <26.3 {
-package dev.technix.mica.api.compat.v26_2;
+//? if >=26.3 {
+/*package dev.technix.mica.api.compat.v26_3;
 
 import com.mojang.blaze3d.pipeline.RenderTarget;
-import com.mojang.blaze3d.systems.CommandEncoder;
-import com.mojang.blaze3d.systems.CommandEncoderBackend;
-import com.mojang.blaze3d.systems.GpuDevice;
-import com.mojang.blaze3d.systems.GpuDeviceBackend;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.GpuTexture;
-import com.mojang.blaze3d.textures.GpuTextureView;
-import com.mojang.blaze3d.vulkan.VulkanCommandEncoder;
-import com.mojang.blaze3d.vulkan.VulkanConst;
-import com.mojang.blaze3d.vulkan.VulkanDevice;
-import com.mojang.blaze3d.vulkan.VulkanGpuTexture;
-import com.mojang.blaze3d.vulkan.VulkanGpuTextureView;
-import com.mojang.blaze3d.vulkan.VulkanQueue;
+import com.mojang.renderpearl.api.commands.CommandEncoder;
+import com.mojang.renderpearl.api.device.GpuDevice;
+import com.mojang.renderpearl.api.textures.GpuTexture;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
+import com.mojang.renderpearl.backend.api.CommandEncoderBackend;
+import com.mojang.renderpearl.backend.api.GpuDeviceBackend;
+import com.mojang.renderpearl.backend.vulkan.VulkanCommandEncoder;
+import com.mojang.renderpearl.backend.vulkan.VulkanConst;
+import com.mojang.renderpearl.backend.vulkan.VulkanDevice;
+import com.mojang.renderpearl.backend.vulkan.VulkanGpuTexture;
+import com.mojang.renderpearl.backend.vulkan.VulkanGpuTextureView;
+import com.mojang.renderpearl.backend.vulkan.VulkanQueue;
+import com.mojang.renderpearl.frontend.FrontendCommandEncoder;
 import dev.technix.mica.api.MinecraftCompat;
 import dev.technix.mica.api.RenderBackendType;
 import dev.technix.mica.api.SpriteBounds;
@@ -24,7 +25,6 @@ import dev.technix.mica.internal.backend.opengl.GlTextureNames;
 import dev.technix.mica.internal.backend.opengl.OpenGLHostAccess;
 import dev.technix.mica.internal.backend.vulkan.VulkanContext;
 import dev.technix.mica.internal.backend.vulkan.VulkanHostAccess;
-import dev.technix.mica.mixin.client.CommandEncoderAccessor;
 import dev.technix.mica.mixin.client.GpuDeviceAccessor;
 import dev.technix.mica.mixin.client.VulkanCommandEncoderAccessor;
 import net.fabricmc.loader.api.FabricLoader;
@@ -44,14 +44,18 @@ import java.util.Optional;
 import static org.lwjgl.vulkan.VK10.VK_IMAGE_LAYOUT_UNDEFINED;
 
 
-/**
- * Minecraft 26.2 adapter (Blaze3d rendering, GLFW input; compiled only into the 26.2 jar,
- * see {@code docs/mica/multiversion.md}). Detects which backend Minecraft's {@code GpuDevice} runs on and
+/^*
+ * Minecraft 26.3 adapter (Renderpearl rendering, SDL input; compiled only into the 26.3 jar,
+ * see {@code docs/mica/multiversion.md}). Same responsibilities as the 26.2 adapter; the
+ * differences are Mojang's 26.3 moves: Blaze3d's device, encoder, texture and backend classes
+ * now live in {@code com.mojang.renderpearl}, {@code FrontendCommandEncoder.backend()} is
+ * public, the Vulkan encoder's per-frame buffer is {@code objectInitCommandBuffer()}, and
+ * SDL needs text input switched on explicitly. Detects which backend Minecraft's {@code GpuDevice} runs on and
  * provides the host access for both of Mica's renderers: {@link VulkanHostAccess} (device,
  * frame command buffer, image views) and {@link OpenGLHostAccess} (main render target and
  * texture names). This is the only class allowed to touch Mojang's rendering internals.
- */
-public final class MinecraftCompatImpl_26_2 implements MinecraftCompat, VulkanHostAccess,
+ ^/
+public final class MinecraftCompatImpl_26_3 implements MinecraftCompat, VulkanHostAccess,
         OpenGLHostAccess {
 
     // ---- backend detection ---------------------------------------------------------------
@@ -81,6 +85,14 @@ public final class MinecraftCompatImpl_26_2 implements MinecraftCompat, VulkanHo
     public boolean isOnRenderThread() {
         Minecraft minecraft = Minecraft.getInstance();
         return minecraft != null && minecraft.isSameThread();
+    }
+
+    @Override
+    public void setTextInputActive(boolean active) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft != null && minecraft.textInputManager() != null) {
+            minecraft.textInputManager().onTextInputFocusChange(TEXT_INPUT_OWNER, active);
+        }
     }
 
     @Override
@@ -149,7 +161,7 @@ public final class MinecraftCompatImpl_26_2 implements MinecraftCompat, VulkanHo
         return Optional.of(ctx);
     }
 
-    /** {@code true} when Minecraft renders with Vulkan and its main render target exists. */
+    /^* {@code true} when Minecraft renders with Vulkan and its main render target exists. ^/
     public boolean isVulkanRendererActive() {
         return vulkanDevice() != null && mainRenderTarget0() != null;
     }
@@ -162,7 +174,10 @@ public final class MinecraftCompatImpl_26_2 implements MinecraftCompat, VulkanHo
             return null;
         }
         CommandEncoder encoder = device.createCommandEncoder();
-        CommandEncoderBackend backend = ((CommandEncoderAccessor) (Object) encoder).imgui$backend();
+        if (!(encoder instanceof FrontendCommandEncoder frontend)) {
+            return null;
+        }
+        CommandEncoderBackend backend = frontend.backend();
         if (!(backend instanceof VulkanCommandEncoder vulkanEncoder)) {
             return null;
         }
@@ -279,11 +294,13 @@ public final class MinecraftCompatImpl_26_2 implements MinecraftCompat, VulkanHo
         return minecraft.gameRenderer.mainRenderTarget();
     }
 
+    private static final Object TEXT_INPUT_OWNER = new Object();
+
 
     @NotNull
     public static Optional<SpriteBounds> itemIcon(@NotNull ItemStack stack,
-                                                   @NotNull MinecraftCompatImpl_26_2 compat) {
+                                                   @NotNull MinecraftCompatImpl_26_3 compat) {
         return compat.locateItemIcon(stack);
     }
 }
-//?}
+*///?}

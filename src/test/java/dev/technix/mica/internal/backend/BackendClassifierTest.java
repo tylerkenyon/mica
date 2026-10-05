@@ -20,10 +20,20 @@ class BackendClassifierTest {
     }
 
     @Test
+    void classifiesRenderpearlBackendsOn26_3() {
+        assertEquals(RenderBackendType.VULKAN,
+                BackendClassifier.classify("com.mojang.renderpearl.backend.vulkan.VulkanDevice"));
+        assertEquals(RenderBackendType.OPENGL,
+                BackendClassifier.classify("com.mojang.renderpearl.backend.opengl.GlDevice"));
+    }
+
+    @Test
     void unknownBackendsAreNotGuessed() {
         assertEquals(RenderBackendType.UNKNOWN,
                 BackendClassifier.classify("com.example.d3d12.D3D12Device"));
         assertEquals(RenderBackendType.UNKNOWN,
                 BackendClassifier.classify("com.mojang.blaze3d.openglx.Fake"));
+        assertEquals(RenderBackendType.UNKNOWN,
+                BackendClassifier.classify("com.mojang.renderpearl.frontend.FrontendGpuDevice"));
     }
 }

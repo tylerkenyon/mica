@@ -18,7 +18,7 @@ public abstract class KeyboardHandlerMixin {
             at = @At("HEAD"), cancellable = true)
     private void imguiKeyPress(long windowPointer, int action, KeyEvent event,
                                CallbackInfo ci) {
-        ActiveRenderers.feedKey(event.key(), event.scancode(), action);
+        ActiveRenderers.feedKey(event.key(), action);
         if (ActiveRenderers.wantsKeyboard()) {
             ci.cancel();
         }

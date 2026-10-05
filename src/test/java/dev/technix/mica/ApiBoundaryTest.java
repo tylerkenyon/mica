@@ -17,7 +17,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ApiBoundaryTest {
 
-    private static final Path SOURCES = Path.of("src/client/java/dev/technix/mica");
+    /** Gradle passes the shared source tree, since tests run once per Minecraft version subproject. */
+    private static final Path SOURCES = Path.of(System.getProperty("mica.sourceRoot", "src/client/java"))
+            .resolve("dev/technix/mica");
 
     private static final List<String> BACKEND_SPECIFIC = List.of(
             "org.lwjgl.vulkan", "org.lwjgl.opengl", "com.mojang.blaze3d.vulkan",

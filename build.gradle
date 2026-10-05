@@ -1,9 +1,15 @@
+// Build script for one Minecraft version. Stonecutter (see settings.gradle / stonecutter.gradle)
+// applies it to every versions/<mc> subproject; minecraft_version, loader_version and
+// fabric_version come from versions/<mc>/gradle.properties, the rest from the root
+// gradle.properties. Run tasks for one version as `./gradlew :26.3:build`, or for all
+// versions as `./gradlew build`.
 plugins {
-    id 'net.fabricmc.fabric-loom' version '1.17-SNAPSHOT'
+    id 'net.fabricmc.fabric-loom'
     id 'maven-publish'
 }
 
-version = project.mod_version
+// e.g. 0.1+mc26.3, so the jars and dist zips of different Minecraft versions never collide.
+version = "${project.mod_version}+mc${project.minecraft_version}"
 group = project.maven_group
 
 base {
@@ -15,6 +21,8 @@ loom {
 
     runs {
         client {
+            // All versions share one run directory (worlds, options) at the repository root.
+            runDir "../../run"
             // Mica picks its renderer from whatever backend Minecraft chooses, so by default
             // the dev client lets Minecraft decide. Force one with
             //   -PmicaBackend=vulkan   or   -PmicaBackend=opengl
@@ -118,10 +126,15 @@ dependencies {
     testImplementation platform("org.junit:junit-bom:${project.junit_version}")
     testImplementation "org.junit.jupiter:junit-jupiter"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+    // MixinTargetsTest reads the compiled mixins and this version's Minecraft classes.
+    testImplementation "org.ow2.asm:asm-tree:${project.asm_version}"
 }
 
 test {
     useJUnitPlatform()
+    // Tests run per Minecraft version, from versions/<mc>; they need the shared source tree.
+    systemProperty "mica.sourceRoot", rootProject.file("src/client/java").absolutePath
+    systemProperty "mica.minecraftVersion", project.minecraft_version
 }
 
 processResources {
@@ -165,8 +178,8 @@ java {
 }
 
 jar {
-    from("LICENSE") {
-        rename { "${it}_${project.archives_base_name}" }
+    from(rootProject.file("LICENSE.txt")) {
+        rename { "LICENSE_${project.archives_base_name}.txt" }
     }
 }
 
@@ -186,15 +199,16 @@ tasks.register("libraryJar", Jar) {
 
 tasks.register("dist", Zip) {
     group = "distribution"
-    description = "Bundles the slim library JAR + LICENSE.txt + library-README.md into dist/<name>-lib-<version>.zip."
+    description = "Bundles the slim library JAR + LICENSE.txt + library-README.md into dist/<name>-lib-<version>+mc<mc>.zip."
     archiveBaseName.set("${project.archives_base_name}-lib")
     archiveVersion.set(project.version)
-    destinationDirectory.set(file("dist"))
+    // One zip per Minecraft version, side by side in the repository's dist/ folder.
+    destinationDirectory.set(rootProject.file("dist"))
     dependsOn "libraryJar"
 
     from(tasks.named("libraryJar"))
-    from("LICENSE.txt") { rename { "LICENSE.txt" } }
-    from("library-README.md")
+    from(rootProject.file("LICENSE.txt")) { rename { "LICENSE.txt" } }
+    from(rootProject.file("library-README.md"))
 }
 
 

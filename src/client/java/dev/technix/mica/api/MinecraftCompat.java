@@ -1,9 +1,9 @@
 package dev.technix.mica.api;
 
-import dev.technix.mica.api.compat.v26_2.MinecraftCompatImpl_26_2;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Optional;
 
@@ -22,11 +22,16 @@ import java.util.Optional;
 public interface MinecraftCompat {
 
     /**
-     * The compat adapter for the running Minecraft version.
+     * The compat adapter for the Minecraft version this Mica jar was built for. Each Mica jar
+     * targets one Minecraft version (built from the same sources with Stonecutter).
      */
     @NotNull
     static MinecraftCompat detect() {
-        return new MinecraftCompatImpl_26_2();
+        //? if >=26.3 {
+        /*return new dev.technix.mica.api.compat.v26_3.MinecraftCompatImpl_26_3();
+        *///?} else {
+        return new dev.technix.mica.api.compat.v26_2.MinecraftCompatImpl_26_2();
+        //?}
     }
 
     /**
@@ -61,6 +66,25 @@ public interface MinecraftCompat {
     @NotNull
     default <T> Optional<T> backendAccess(@NotNull Class<T> type) {
         return type.isInstance(this) ? Optional.of(type.cast(this)) : Optional.empty();
+    }
+
+
+    /**
+     * The mouse cursor position in window coordinates (what Minecraft's {@code MouseHandler}
+     * reports), or {@code null} if unknown. Read once per frame for ImGui, so Mica does not
+     * depend on the signature of Minecraft's cursor-move callback, which differs between
+     * versions.
+     */
+    default double @Nullable [] cursorPosition() {
+        return null;
+    }
+
+    /**
+     * Turns the platform's text input on or off while an ImGui text field is focused. On
+     * GLFW-based versions text input is always on and this does nothing; with SDL (26.3+)
+     * character events only arrive while text input is started.
+     */
+    default void setTextInputActive(boolean active) {
     }
 
 
