@@ -1,6 +1,6 @@
 # Rendering backends: OpenGL and Vulkan
 
-Minecraft 26.2 can render with **Vulkan** or **OpenGL** (`--graphicsBackend`, or the
+Minecraft 26.2 and 26.3 can render with **Vulkan** or **OpenGL** (`--graphicsBackend`, or the
 video settings). Mica supports both through one backend-independent API: the same mod
 jar, the same `Mica` / `OverlayRenderer` / `OverlayElement` code, on either backend.
 
@@ -76,7 +76,7 @@ thread. A frame requested off the render thread is refused (one WARN), never exe
 | Feature                          | Vulkan | OpenGL | Notes |
 | -------------------------------- | :----: | :----: | ----- |
 | ImGui windows, widgets, text     | ✔ | ✔ | Same Dear ImGui frame; only the final draw differs. |
-| Mouse / keyboard input           | ✔ | ✔ | Backend-independent (`ImGuiInputRouter`), shared code. |
+| Mouse / keyboard input           | ✔ | ✔ | Backend-independent (`ImGuiInputRouter`), shared code; translated through Minecraft's `InputConstants`, so GLFW (26.2) and SDL (26.3) work alike. |
 | `OverlayElement` + `MicaScreen` scopes | ✔ | ✔ | |
 | Bundled + custom fonts           | ✔ | ✔ | |
 | `MicaTexture` (atlases, textures)| ✔ | ✔ | `TextureFilter.NEAREST` / `LINEAR` honoured on both. |
@@ -119,13 +119,15 @@ Minecraft is using.
 
 ## How detection works (contributors)
 
-1. `MinecraftCompat.renderBackend()` (26.2 implementation in
-   `MinecraftCompatImpl_26_2`) reads `RenderSystem.tryGetDevice()` and, through the
-   `GpuDeviceAccessor` mixin, the device's `GpuDeviceBackend`.
+1. `MinecraftCompat.renderBackend()` (implemented by `MinecraftCompatImpl_26_2` /
+   `MinecraftCompatImpl_26_3`) reads `RenderSystem.tryGetDevice()` and, through the
+   `GpuDeviceAccessor` mixin, the device's `GpuDeviceBackend`. On 26.3 the device is
+   Renderpearl's `FrontendGpuDevice`.
 2. `VulkanDevice` → `VULKAN`. Otherwise the backend class is classified by package
-   (`BackendClassifier`): `com.mojang.blaze3d.opengl.*` → `OPENGL`, anything else
+   (`BackendClassifier`): `com.mojang.blaze3d.opengl.*` (26.2) or
+   `com.mojang.renderpearl.backend.opengl.*` (26.3) → `OPENGL`, anything else
    → `UNKNOWN`. The package check exists because `GlDevice` is package-private
-   since 26.1 and cannot be used in an `instanceof`.
+   and cannot be used in an `instanceof`.
 3. No device yet (very early start-up) → empty; the core simply retries next frame.
 4. On the first frame with a device, `ImGuiRenderer` asks the
    `RenderBackendRegistry` for the matching factory and creates the backend once.
@@ -149,8 +151,8 @@ Minecraft is using.
                │ VulkanHostAccess            │ OpenGLHostAccess
                └──────────────┬──────────────┘
                               ▼
-            MinecraftCompatImpl_26_2  (api/compat/v26_2)
-                 Minecraft 26.2 rendering classes
+   MinecraftCompatImpl_26_2 / _26_3  (api/compat/v26_2, v26_3)
+       Minecraft 26.2 (Blaze3d) / 26.3 (Renderpearl) rendering classes
 ```
 
 * **Core code never imports Vulkan or OpenGL.** `ApiBoundaryTest` fails the build if

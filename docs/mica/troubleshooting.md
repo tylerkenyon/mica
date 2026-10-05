@@ -62,6 +62,20 @@ the `FontRegistry` constructor takes
 `Identifier.fromNamespaceAndPath("yourmod", "fonts")`. If the file just isn't
 there, the platform logs a `WARN: Font resource missing:` line.
 
+## "NoSuchFieldError / mixin apply failure / ClassNotFoundException: com.mojang..." at start-up
+
+You are using a Mica jar built for a different Minecraft version. Each jar targets exactly
+one version: `+mc26.2` for 26.2, `+mc26.3` for 26.3 (26.3 moved Mojang's rendering classes
+to `com.mojang.renderpearl` and switched input to SDL). Use the jar matching your Minecraft
+version ([`multiversion.md`](./multiversion.md)).
+
+## "ImGui text fields don't receive typed characters on 26.3"
+
+With SDL, characters only arrive while text input is started. Mica starts it while an ImGui
+text field has focus (`MinecraftCompat.setTextInputActive`). If you drive frames yourself
+instead of through Mica's mixins, make sure `OverlayRenderer.renderOverlay()` (which ends
+the frame) still runs.
+
 ## "The game aborts with `free(): invalid size` on exit or after reloading fonts"
 
 That is imgui-java's `addFontFromMemoryTTF(byte[])` letting ImGui `free()` a pointer
@@ -127,6 +141,7 @@ made instance-level so `runtime style` swaps take effect. Set a logging trap on
 ## Reading more
 
 * [`backends.md`](./backends.md) — Vulkan vs OpenGL, detection, feature matrix.
+* [`multiversion.md`](./multiversion.md) — Minecraft 26.2 vs 26.3 builds.
 * [`vulkan.md`](./vulkan.md) — Vulkan-specific gotchas.
 * [`imgui.md`](./imgui.md) — imgui-java binding notes.
 * [`distribution.md`](./distribution.md) — what the build pipeline actually emits.

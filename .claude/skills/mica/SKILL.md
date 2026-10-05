@@ -5,7 +5,8 @@ description: Reference for working inside the Mica library project. Use when the
 
 # Mica
 
-Mica is a thin Dear ImGui-on-Minecraft-26.2+ overlay library for both of Minecraft's
+Mica is a thin Dear ImGui overlay library for Minecraft 26.2 and 26.3 (one jar per version,
+built from one source tree with Stonecutter), for both of Minecraft's
 rendering backends (Vulkan and OpenGL), behind one backend-independent API. The published
 artefact is a slim jar a consumer modder drops into `/libs/`; `fabric.mod.json` is
 stripped, so Fabric Loader treats it as plain library code, not a mod.
@@ -19,9 +20,9 @@ folder for the corresponding design doc before writing code.
 | Package                                        | What lives there                                                  |
 | ---------------------------------------------- | ----------------------------------------------------------------- |
 | `dev.technix.mica.api`                         | Public API: `Mica`, `MicaOverlay`, `MicaTexture`, `RenderBackendType`, `MicaBackendException`, `OverlayRenderer`, `OverlayElement`, `RenderContext`, `MicaScreen`, `Palette`, `FontRegistry`, `FontFace`, `FrostedGlassStyle`, `Draw`primitives, `SpriteBounds`, `TextureFilter`, `TextureHandle`, `VanillaAtlases`. |
-| `dev.technix.mica.api.compat.v26_2`            | `MinecraftCompatImpl_26_2` — the version adapter: backend detection, `VulkanHostAccess` (device, command buffer, image views), `OpenGLHostAccess` (main target, GL texture names), atlas sprites. The only code that touches `com.mojang.blaze3d.*`. |
+| `dev.technix.mica.api.compat.v26_2` / `v26_3`  | `MinecraftCompatImpl_26_2` / `_26_3` (each version-guarded, only in its own jar) — the version adapter: backend detection, `VulkanHostAccess` (device, command buffer, image views), `OpenGLHostAccess` (main target, GL texture names), atlas sprites. The only code that touches `com.mojang.blaze3d.*`. |
 | `dev.technix.mica.internal`                    | Backend-independent core (`ImGuiRenderer`, `TextureCache`, `FontData`), backends behind `internal.backend.RenderBackend`: Vulkan (`VulkanRenderBackend`, `VulkanImGuiBackend`, `FrostedGlassRenderer`, `VulkanShaderCompiler`) and OpenGL (`OpenGLRenderBackend`, `OpenGLImGuiBackend`, `OpenGLFrostedGlass`, `GlStateSnapshot`), input routing (`ImGuiInputRouter`), screen detection (`ScreenDetector`), font atlas (`ImGuiFonts`, `FontLoader`), `ActiveRenderers`. |
-| `dev.technix.mica.mixin.client`                | Mixin accessors required by the v26_2 adapter — bridge into Mojang's Vulkan bindings. |
+| `dev.technix.mica.mixin.client`                | Mixins + accessors for the adapters — bridge into Mojang's Vulkan bindings (targets version-guarded; `MixinTargetsTest` checks them per version). |
 | `dev.technix.mica.examples`                    | `ToastElement` — a reference `OverlayElement`. The shipped icon for the library's "how do I render" surface. |
 
 ## Symbol entry points (use this table when the user asks "where is X")
@@ -35,12 +36,19 @@ folder for the corresponding design doc before writing code.
 | `MicaScreen` enum                                   | `dev.technix.mica.api.MicaScreen`                    |
 | `RenderContext` record                              | `dev.technix.mica.api.RenderContext`                 |
 | `MinecraftCompat` interface                         | `dev.technix.mica.api.MinecraftCompat`               |
-| `MinecraftCompatImpl_26_2`                          | `dev.technix.mica.api.compat.v26_2.*`                |
+| `MinecraftCompatImpl_26_2` / `_26_3`                | `dev.technix.mica.api.compat.v26_2.*` / `v26_3.*`    |
 | `Draw.frostedPanel` / `Draw.text` / `Draw.image`    | `dev.technix.mica.internal.util.Draw` (called from `api`) |
 | `ActiveRenderers.set(renderer)`                     | `dev.technix.mica.internal.ActiveRenderers` (called from `api`) |
 
 ## Authoring rules
 
+* **Mica targets Minecraft 26.2 and 26.3 with Stonecutter.** `src/` is committed in the 26.2
+  state (`vcsVersion`); version-specific code uses `//? if >=26.3 {` … `//?} else {` … `//?}`
+  comments. Write both branches, run `./gradlew "Refresh active project"`, never hand-edit an
+  inactive (commented) branch, and run `./gradlew "Reset active project"` before committing.
+  Build/test all versions with `./gradlew build`, one with `./gradlew :26.3:build`. Prefer
+  version-independent code (e.g. `InputConstants` for keys, `MouseHandler.xpos()` for the
+  cursor) over conditions. See `docs/mica/multiversion.md`.
 * **Mica supports Vulkan and OpenGL through one API.** The backend is detected at runtime
   (`MinecraftCompat.renderBackend()`); never add backend branches to `api.*` or the core.
   Only `internal.backend.vulkan.*` / `internal.backend.opengl.*` (and the compat adapter)
@@ -60,8 +68,8 @@ folder for the corresponding design doc before writing code.
   is null and ImGui has no context yet. Hook into
   `ClientLifecycleEvents.CLIENT_STARTED.register(client -> { ... })` for runtime
   font registration, then call `FontRegistry.commitPendingFaces()`.
-* **Do not** import `com.mojang.blaze3d.vulkan.*` / `.opengl.*` from anywhere in `api.*` — version-
-  specific code belongs in `api.compat.v26_2.*`. The compat layer is the only place
+* **Do not** import `com.mojang.blaze3d.vulkan.*` / `.opengl.*` / `com.mojang.renderpearl.*` from anywhere in `api.*` — version-
+  specific code belongs in `api.compat.v26_2.*` / `api.compat.v26_3.*`. The compat layer is the only place
   that is allowed to reach into Mojang.
 * **Do not** add a class to a public package without making sure it is in `api/` or
   `examples/`. Anything in `internal/` is by convention private; code that reaches
@@ -73,13 +81,13 @@ The published library is the slim jar produced by the `libraryJar` task in
 `build.gradle`. The flow:
 
 ```
-./gradlew build            → build/libs/<name>-<version>.jar   (the full project)
+./gradlew build            → versions/<mc>/build/libs/<name>-<version>+mc<mc>.jar   (per Minecraft version)
                               │
                               ▼ (recopy everything except `fabric.mod.json`)
-./gradlew libraryJar       → build/dist-staging/<name>-lib-<version>.jar
+./gradlew libraryJar       → versions/<mc>/build/dist-staging/<name>-lib-<version>+mc<mc>.jar
                               │
                               ▼ (zip with LICENSE + library-README)
-./gradlew dist             → dist/<name>-lib-<version>.zip
+./gradlew dist             → dist/<name>-lib-<version>+mc<mc>.zip   (one per Minecraft version)
 ```
 
 `./gradlew dist` is the production-ready command. On Windows, `dist.bat` is a shim.
@@ -109,7 +117,8 @@ release:
 git tag v0.2.0
 git push origin v0.2.0
 
-# 3. The workflow builds + publishes mica-<version>-lib-<version>.zip to GitHub Releases.
+# 3. The workflow builds + publishes dist/mica-lib-<version>+mc<mc>.zip (one per Minecraft
+#    version) to GitHub Releases.
 ```
 
 Every push to `main` automatically publishes a `dev-<short-sha>` PRE-release. PRs
@@ -155,5 +164,5 @@ If any of those fail, fix before tagging `v*`.
 1. `README.md`
 2. `docs/mica/README.md`
 3. `docs/mica/setup.md`, `docs/mica/elements.md`, `docs/mica/customisation.md`
-4. `docs/mica/api.md`, `docs/mica/backends.md`, `docs/mica/vulkan.md`, `docs/mica/imgui.md`
+4. `docs/mica/api.md`, `docs/mica/multiversion.md`, `docs/mica/backends.md`, `docs/mica/vulkan.md`, `docs/mica/imgui.md`
 5. `docs/mica/internals.md`, `docs/mica/troubleshooting.md`, `docs/mica/distribution.md`

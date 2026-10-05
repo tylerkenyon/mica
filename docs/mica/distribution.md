@@ -8,8 +8,8 @@ publish.
 | Gradle task           | Output                                                                                |
 | --------------------- | ------------------------------------------------------------------------------------- |
 | `./gradlew build`     | The full project (anything you've authored drops out at this stage). Not for distribution. |
-| `./gradlew libraryJar` | The slim library jar only. Lands in `build/dist-staging/mica-<version>.jar`.      |
-| `./gradlew dist`       | `mica-<version>.zip` containing the slim jar + `LICENSE.txt` + `library-README.md`. |
+| `./gradlew libraryJar` | The slim library jar per Minecraft version, in `versions/<mc>/build/dist-staging/mica-lib-<version>+mc<mc>.jar`. |
+| `./gradlew dist`       | `dist/mica-lib-<version>+mc<mc>.zip` per Minecraft version: slim jar + `LICENSE.txt` + `library-README.md`. |
 | `./gradlew clean`      | Wipes `build/` and recovers from a stale-build trap.                                  |
 
 `./gradlew dist` is the production-ready command. The bat shim `dist.bat` is a Windows
@@ -17,19 +17,21 @@ entrypoint for the same flow.
 
 ## What is in the slim jar
 
-Verifiable by `unzip -l dist/mica-<version>.jar`:
+Mica is built once per Minecraft version (26.2, 26.3) with Stonecutter; see
+[`multiversion.md`](./multiversion.md). Each jar has this layout, verifiable by unzipping
+the zip and running `unzip -l mica-lib-<version>+mc<mc>.jar`:
 
 | Group                                              | Entries | Notes                                  |
 | -------------------------------------------------- | ------- | -------------------------------------- |
 | `dev/technix/mica/api/`                            | ~15     | Public surface (`OverlayRenderer`, `OverlayElement`, `RenderContext`, `MicaScreen`, `Palette`, `FontRegistry`, `FontFace`, `FrostedGlassStyle`, `SpriteBounds`, `TextureFilter`, `TextureHandle`, `VanillaAtlases`, ...). |
-| `dev/technix/mica/api/compat/v26_2/`              | ~3      | `MinecraftCompatImpl_26_2` and its support classes.   |
+| `dev/technix/mica/api/compat/v26_<x>/`            | 1       | `MinecraftCompatImpl_26_2` (26.2 jar) or `MinecraftCompatImpl_26_3` (26.3 jar). |
 | `dev/technix/mica/internal/`                       | ~25     | Backend-independent renderer core, texture cache, screen detector, input router, font atlas loader, active-renderer registry. |
 | `dev/technix/mica/internal/util/`                  | ~3      | `Draw`, `Theme`.                       |
 | `dev/technix/mica/internal/backend/`               | ~5      | `RenderBackend`, `RenderBackendRegistry`, `RenderBackends`, `BackendClassifier`, `BackendDiagnostics`. |
 | `dev/technix/mica/internal/backend/vulkan/`        | ~7      | `VulkanRenderBackend`, `FrostedGlassRenderer`, `VulkanContext`, `VulkanHostAccess`, `VulkanImGuiBackend`, `VulkanShaderCompiler`. |
-| `dev/technix/mica/internal/backend/opengl/`        | ~5      | `OpenGLRenderBackend`, `OpenGLImGuiBackend`, `OpenGLFrostedGlass`, `GlStateSnapshot`, `OpenGLHostAccess`. |
+| `dev/technix/mica/internal/backend/opengl/`        | ~6      | `OpenGLRenderBackend`, `OpenGLImGuiBackend`, `OpenGLFrostedGlass`, `GlStateSnapshot`, `OpenGLHostAccess`, `GlTextureNames`. |
 | `dev/technix/mica/examples/`                       | ~2      | `ToastElement`.                        |
-| `dev/technix/mica/mixin/client/`                   | ~6      | Mixin accessors required by the 26.2 adapter. |
+| `dev/technix/mica/mixin/client/`                   | ~6      | Mixins and accessors (targets differ per Minecraft version). |
 | `assets/mica/`                                     | fonts  | SF Pro Display is bundled (read the licence note in the README before commercial use). |
 | `META-INF/jars/`                                   | jar-in-jar | imgui-java 1.92 (binding + natives), packaged so the consumer has no extra dependencies. LWJGL (Vulkan, OpenGL, Shaderc) is not bundled: Minecraft 26.2 provides it. |
 
@@ -51,7 +53,7 @@ on top of Mica), that's a separate Gradle task — out of scope here.
 The consumer side is documented in [`setup.md`](./setup.md). In short:
 
 1. Drop the jar into `libs/`.
-2. Wire `implementation files("libs/mica-<version>.jar")` in their `build.gradle`.
+2. Wire `implementation files("libs/mica-lib-<version>+mc<mc>.jar")` (their Minecraft version) in their `build.gradle`.
 3. Declare a `custom` key in their `fabric.mod.json` (Mica doesn't read this; it's
    for end-user attribution).
 

@@ -14,6 +14,7 @@ it, debug it, extend it, or publish it.
 | [`contexts.md`](./contexts.md)             | understand `MicaScreen` and how the renderer filters elements per frame.     |
 | [`customisation.md`](./customisation.md)   | plug in your own fonts (a directory you control) or re-skin the frosted glass. |
 | [`api.md`](./api.md)                       | symbol-by-symbol reference for every public type.                            |
+| [`multiversion.md`](./multiversion.md)     | Minecraft 26.2 + 26.3 with Stonecutter: which jar, building, version-specific code, adding a version. |
 | [`backends.md`](./backends.md)             | Vulkan + OpenGL support: automatic detection, textures, feature matrix, adding a backend. |
 | [`vulkan.md`](./vulkan.md)                 | understand the 26.2-specific Vulkan pipeline (descriptor ring, layout transitions). |
 | [`imgui.md`](./imgui.md)                   | use the imgui-java 1.92 binding cleanly inside a Mica overlay.               |
@@ -36,9 +37,10 @@ The layers from top to bottom:
    textures, input. Talks only to the `RenderBackend` interface.
 3. **Backends** (`internal.backend.vulkan`, `internal.backend.opengl`): the only
    code that touches a graphics API. Picked at runtime from what Minecraft uses.
-4. **Compatibility adapter** (`api.compat.v26_2`): the version-specific bridge to
+4. **Compatibility adapters** (`api.compat.v26_2`, `api.compat.v26_3`): the version-specific bridge to
    the running Minecraft release (backend detection, Vulkan and OpenGL host access).
-   Future Minecraft releases get a sibling adapter; the public API does not change.
+   Each is compiled only into its own Minecraft version's jar (Stonecutter, see
+   [`multiversion.md`](./multiversion.md)); the public API does not change.
 
 `internal.*` is public by Java visibility but conceptually private; application
 code should not depend on these symbols.
