@@ -9,8 +9,11 @@ pluginManagement {
 }
 
 plugins {
-    // Auto-provisions JDK toolchains (JDK 25 for Minecraft 26.2) when not installed locally.
+    // Auto-provisions JDK toolchains (JDK 25 for Minecraft 26.x) when not installed locally.
     id 'org.gradle.toolchains.foojay-resolver-convention' version '0.9.0'
+    // Multi-version builds: one source tree, one subproject per Minecraft version under
+    // versions/<mc>. See docs/mica/multiversion.md.
+    id 'dev.kikugie.stonecutter' version '0.9.8'
 }
 
 dependencyResolutionManagement {
@@ -18,3 +21,14 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
+
+stonecutter {
+    create(rootProject) {
+        // Every supported Minecraft version. Each gets versions/<mc>/gradle.properties.
+        versions('26.2', '26.3')
+        // The version the sources in src/ are kept in when committed.
+        vcsVersion = '26.2'
+    }
+}
+
+rootProject.name = 'mica'

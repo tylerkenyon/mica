@@ -259,9 +259,68 @@ class ImGuiRendererLifecycleTest {
         assertEquals(0L, texture.imGuiTextureId());
     }
 
+    @Test
+    void textInputIsStartedOnlyWhileAnImGuiTextFieldIsFocused() {
+        compat.backend = Optional.of(RenderBackendType.OPENGL);
+        imgui.type.ImString text = new imgui.type.ImString("hello", 32);
+        for (int frame = 0; frame < 3; frame++) {
+            assertTrue(renderer.beginFrame());
+            ImGui.begin("text");
+            ImGui.setKeyboardFocusHere();
+            ImGui.inputText("field", text);
+            ImGui.end();
+            renderer.endFrame();
+        }
+        assertEquals(List.of(true), compat.textInputChanges, "started once, not every frame");
+
+        // ImGui releases a field's active state one frame after it stops being submitted.
+        for (int frame = 0; frame < 2; frame++) {
+            assertTrue(renderer.beginFrame());
+            renderer.endFrame();
+        }
+        assertEquals(List.of(true, false), compat.textInputChanges);
+
+        assertTrue(renderer.beginFrame());
+        ImGui.begin("text");
+        ImGui.setKeyboardFocusHere();
+        ImGui.inputText("field", text);
+        ImGui.end();
+        renderer.endFrame();
+        assertTrue(renderer.beginFrame());
+        ImGui.begin("text");
+        ImGui.inputText("field", text);
+        ImGui.end();
+        renderer.endFrame();
+        renderer.shutdown();
+        assertEquals(false, compat.textInputChanges.get(compat.textInputChanges.size() - 1),
+                "shutdown stops text input");
+    }
+
+    @Test
+    void cursorPositionIsFedEveryFrame() {
+        compat.backend = Optional.of(RenderBackendType.VULKAN);
+        compat.cursor = new double[] {120.0, 45.0};
+        assertTrue(renderer.beginFrame());
+        assertEquals(120.0f, ImGui.getIO().getMousePosX());
+        assertEquals(45.0f, ImGui.getIO().getMousePosY());
+        renderer.endFrame();
+    }
+
     private static final class FakeCompat implements MinecraftCompat {
         Optional<RenderBackendType> backend = Optional.empty();
         boolean onRenderThread = true;
+        double[] cursor;
+        final List<Boolean> textInputChanges = new ArrayList<>();
+
+        @Override
+        public double[] cursorPosition() {
+            return cursor;
+        }
+
+        @Override
+        public void setTextInputActive(boolean active) {
+            textInputChanges.add(active);
+        }
 
         @Override
         public @NotNull Optional<RenderBackendType> renderBackend() {

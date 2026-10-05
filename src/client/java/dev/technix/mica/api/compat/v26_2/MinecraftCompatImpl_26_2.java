@@ -1,3 +1,4 @@
+//? if <26.3 {
 package dev.technix.mica.api.compat.v26_2;
 
 import com.mojang.blaze3d.pipeline.RenderTarget;
@@ -19,6 +20,7 @@ import dev.technix.mica.api.RenderBackendType;
 import dev.technix.mica.api.SpriteBounds;
 import dev.technix.mica.api.VanillaAtlases;
 import dev.technix.mica.internal.backend.BackendClassifier;
+import dev.technix.mica.internal.backend.opengl.GlTextureNames;
 import dev.technix.mica.internal.backend.opengl.OpenGLHostAccess;
 import dev.technix.mica.internal.backend.vulkan.VulkanContext;
 import dev.technix.mica.internal.backend.vulkan.VulkanHostAccess;
@@ -43,7 +45,8 @@ import static org.lwjgl.vulkan.VK10.VK_IMAGE_LAYOUT_UNDEFINED;
 
 
 /**
- * Minecraft 26.2 adapter. Detects which backend Minecraft's {@code GpuDevice} runs on and
+ * Minecraft 26.2 adapter (Blaze3d rendering, GLFW input; compiled only into the 26.2 jar,
+ * see {@code docs/mica/multiversion.md}). Detects which backend Minecraft's {@code GpuDevice} runs on and
  * provides the host access for both of Mica's renderers: {@link VulkanHostAccess} (device,
  * frame command buffer, image views) and {@link OpenGLHostAccess} (main render target and
  * texture names). This is the only class allowed to touch Mojang's rendering internals.
@@ -78,6 +81,15 @@ public final class MinecraftCompatImpl_26_2 implements MinecraftCompat, VulkanHo
     public boolean isOnRenderThread() {
         Minecraft minecraft = Minecraft.getInstance();
         return minecraft != null && minecraft.isSameThread();
+    }
+
+    @Override
+    public double @Nullable [] cursorPosition() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft == null || minecraft.mouseHandler == null) {
+            return null;
+        }
+        return new double[] {minecraft.mouseHandler.xpos(), minecraft.mouseHandler.ypos()};
     }
 
     // ---- Vulkan --------------------------------------------------------------------------
@@ -274,3 +286,4 @@ public final class MinecraftCompatImpl_26_2 implements MinecraftCompat, VulkanHo
         return compat.locateItemIcon(stack);
     }
 }
+//?}

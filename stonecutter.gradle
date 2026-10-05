@@ -1,0 +1,10 @@
+// Root build script for the Stonecutter tree. Each Minecraft version in settings.gradle is a
+// subproject (versions/<mc>) built by build.gradle with that version's gradle.properties.
+plugins {
+    id 'dev.kikugie.stonecutter'
+    id 'net.fabricmc.fabric-loom' version '1.17-SNAPSHOT' apply false
+}
+
+// The version the sources in src/ are currently written for. Change it with the
+// "Set active project to <mc>" tasks, and run "Reset active project" before committing.
+stonecutter.active '26.2' /* [SC] DO NOT EDIT */

@@ -67,10 +67,6 @@ public final class ActiveRenderers {
         PENDING_STYLE = FrostedGlassStyle.DEFAULT;
     }
 
-    public static void feedMouseMove(double x, double y) {
-        ImGuiInputRouter.onMouseMove(imGuiRenderer(), x, y);
-    }
-
     public static void feedMouseButton(int button, boolean pressed) {
         ImGuiInputRouter.onMouseButton(imGuiRenderer(), button, pressed);
     }
@@ -79,8 +75,13 @@ public final class ActiveRenderers {
         ImGuiInputRouter.onMouseScroll(imGuiRenderer(), xOffset, yOffset);
     }
 
-    public static void feedKey(int key, int scancode, int action) {
-        ImGuiInputRouter.onKey(imGuiRenderer(), key, scancode, action);
+    /**
+     * @param key    Minecraft's key code ({@code KeyEvent.key()}: a GLFW key on 26.2, an SDL
+     *               scancode on 26.3; both match {@code InputConstants.KEY_*} of their version)
+     * @param action {@code InputConstants.PRESS}, {@code REPEAT} or {@code RELEASE}
+     */
+    public static void feedKey(int key, int action) {
+        ImGuiInputRouter.onKey(imGuiRenderer(), key, action);
     }
 
     public static void feedChar(int codepoint) {
