@@ -15,12 +15,17 @@ import com.mojang.blaze3d.vulkan.VulkanGpuTexture;
 import com.mojang.blaze3d.vulkan.VulkanGpuTextureView;
 import com.mojang.blaze3d.vulkan.VulkanQueue;
 import dev.technix.mica.api.MinecraftCompat;
+import dev.technix.mica.api.RenderBackendType;
 import dev.technix.mica.api.SpriteBounds;
 import dev.technix.mica.api.VanillaAtlases;
+import dev.technix.mica.internal.backend.BackendClassifier;
+import dev.technix.mica.internal.backend.opengl.OpenGLHostAccess;
 import dev.technix.mica.internal.backend.vulkan.VulkanContext;
+import dev.technix.mica.internal.backend.vulkan.VulkanHostAccess;
 import dev.technix.mica.mixin.client.CommandEncoderAccessor;
 import dev.technix.mica.mixin.client.GpuDeviceAccessor;
 import dev.technix.mica.mixin.client.VulkanCommandEncoderAccessor;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.client.renderer.texture.TextureAtlas;
@@ -33,19 +38,49 @@ import org.lwjgl.vulkan.VkCommandBuffer;
 import org.lwjgl.vulkan.VkDevice;
 
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.lwjgl.vulkan.VK10.VK_IMAGE_LAYOUT_UNDEFINED;
 
 
-public final class MinecraftCompatImpl_26_2 implements MinecraftCompat {
+/**
+ * Minecraft 26.2 adapter. Detects which backend Minecraft's {@code GpuDevice} runs on and
+ * provides the host access for both of Mica's renderers: {@link VulkanHostAccess} (device,
+ * frame command buffer, image views) and {@link OpenGLHostAccess} (main render target and
+ * texture names). This is the only class allowed to touch Mojang's rendering internals.
+ */
+public final class MinecraftCompatImpl_26_2 implements MinecraftCompat, VulkanHostAccess,
+        OpenGLHostAccess {
 
-    
-    private static final org.slf4j.Logger LOGGER =
-            org.slf4j.LoggerFactory.getLogger("mica");
+    // ---- backend detection ---------------------------------------------------------------
 
-    
-    private static final AtomicBoolean NON_VULKAN_WARNING_LOGGED = new AtomicBoolean(false);
+    @Override
+    @NotNull
+    public Optional<RenderBackendType> renderBackend() {
+        GpuDeviceBackend backend = deviceBackend();
+        if (backend == null) {
+            return Optional.empty();
+        }
+        if (backend instanceof VulkanDevice) {
+            return Optional.of(RenderBackendType.VULKAN);
+        }
+        return Optional.of(BackendClassifier.classify(backend.getClass().getName()));
+    }
+
+    @Override
+    @NotNull
+    public String minecraftVersion() {
+        return FabricLoader.getInstance().getModContainer("minecraft")
+                .map(container -> container.getMetadata().getVersion().getFriendlyString())
+                .orElse("26.2");
+    }
+
+    @Override
+    public boolean isOnRenderThread() {
+        Minecraft minecraft = Minecraft.getInstance();
+        return minecraft != null && minecraft.isSameThread();
+    }
+
+    // ---- Vulkan --------------------------------------------------------------------------
 
     @Override
     @NotNull
@@ -67,7 +102,7 @@ public final class MinecraftCompatImpl_26_2 implements MinecraftCompat {
         int width = 0;
         int height = 0;
 
-        RenderTarget target = mainRenderTarget();
+        RenderTarget target = mainRenderTarget0();
         if (target != null) {
             GpuTexture colorTexture = target.getColorTexture();
             GpuTextureView colorView = target.getColorTextureView();
@@ -75,9 +110,9 @@ public final class MinecraftCompatImpl_26_2 implements MinecraftCompat {
                     && colorView instanceof VulkanGpuTextureView vulkanView) {
                 sceneImage = vulkanTexture.vkImage();
                 sceneImageView = vulkanView.vkImageView();
-                
-                
-                
+
+
+
                 sceneLayout = org.lwjgl.vulkan.VK10.VK_IMAGE_LAYOUT_GENERAL;
                 colorFormat = VulkanConst.toVk(colorTexture.getFormat());
                 width = target.width;
@@ -102,9 +137,9 @@ public final class MinecraftCompatImpl_26_2 implements MinecraftCompat {
         return Optional.of(ctx);
     }
 
-    @Override
+    /** {@code true} when Minecraft renders with Vulkan and its main render target exists. */
     public boolean isVulkanRendererActive() {
-        return vulkanDevice() != null && mainRenderTarget() != null;
+        return vulkanDevice() != null && mainRenderTarget0() != null;
     }
 
     @Override
@@ -128,17 +163,36 @@ public final class MinecraftCompatImpl_26_2 implements MinecraftCompat {
 
     @Override
     public long vkImageViewFor(@NotNull Identifier textureId) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft == null || minecraft.getTextureManager() == null) {
-            return 0L;
-        }
-        AbstractTexture texture = minecraft.getTextureManager().getTexture(textureId);
-        if (texture == null) {
-            return 0L;
-        }
-        GpuTextureView view = texture.getTextureView();
+        GpuTextureView view = textureView(textureId);
         return view instanceof VulkanGpuTextureView vulkanView ? vulkanView.vkImageView() : 0L;
     }
+
+    // ---- OpenGL --------------------------------------------------------------------------
+
+    @Override
+    @Nullable
+    public MainTarget mainRenderTarget() {
+        if (renderBackend().orElse(null) != RenderBackendType.OPENGL) {
+            return null;
+        }
+        RenderTarget target = mainRenderTarget0();
+        if (target == null) {
+            return null;
+        }
+        int colorTexture = GlTextureNames.of(target.getColorTexture());
+        if (colorTexture == 0 || target.width <= 0 || target.height <= 0) {
+            return null;
+        }
+        return new MainTarget(colorTexture, target.width, target.height);
+    }
+
+    @Override
+    public int glTextureIdFor(@NotNull Identifier textureId) {
+        GpuTextureView view = textureView(textureId);
+        return view != null ? GlTextureNames.of(view.texture()) : 0;
+    }
+
+    // ---- sprites -------------------------------------------------------------------------
 
     @Override
     @NotNull
@@ -159,7 +213,7 @@ public final class MinecraftCompatImpl_26_2 implements MinecraftCompat {
                 sprite.getU0(), sprite.getV0(), sprite.getU1(), sprite.getV1()));
     }
 
-    
+
     private static @Nullable TextureAtlas resolveAtlas(Minecraft minecraft, Identifier atlasId) {
         if (minecraft.getTextureManager().getTexture(atlasId) instanceof TextureAtlas atlas) {
             return atlas;
@@ -177,44 +231,35 @@ public final class MinecraftCompatImpl_26_2 implements MinecraftCompat {
         return null;
     }
 
-    
+    // ---- helpers -------------------------------------------------------------------------
 
-    
     @Nullable
-    private static VulkanDevice vulkanDevice() {
+    private static GpuDeviceBackend deviceBackend() {
         GpuDevice device = RenderSystem.tryGetDevice();
         if (device == null) {
             return null;
         }
-        GpuDeviceBackend backend = ((GpuDeviceAccessor) (Object) device).imgui$backend();
-        if (!(backend instanceof VulkanDevice)) {
-            
-            
-            
-            
-            
-            
-            
-            if (NON_VULKAN_WARNING_LOGGED.compareAndSet(false, true)) {
-                String message = "mica requires Vulkan - host GpuDevice is active as "
-                        + backend.getClass().getSimpleName() + ", not VulkanDevice. "
-                        + "The ImGui overlay will be invisible on this run. "
-                        + "Force Vulkan with --graphicsBackend vulkan "
-                        + "(build.gradle does this by default for the runClient task).";
-                if (Boolean.getBoolean("imgui.allowNonVulkan")) {
-                    LOGGER.info(message);
-                } else {
-                    LOGGER.warn(message);
-                }
-            }
-            return null;
-        }
-        return (VulkanDevice) backend;
+        return ((GpuDeviceAccessor) (Object) device).imgui$backend();
     }
 
-    
     @Nullable
-    private static RenderTarget mainRenderTarget() {
+    private static VulkanDevice vulkanDevice() {
+        return deviceBackend() instanceof VulkanDevice vulkanDevice ? vulkanDevice : null;
+    }
+
+    @Nullable
+    private static GpuTextureView textureView(Identifier textureId) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft == null || minecraft.getTextureManager() == null) {
+            return null;
+        }
+        AbstractTexture texture = minecraft.getTextureManager().getTexture(textureId);
+        return texture != null ? texture.getTextureView() : null;
+    }
+
+
+    @Nullable
+    private static RenderTarget mainRenderTarget0() {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft == null || minecraft.gameRenderer == null) {
             return null;
@@ -222,7 +267,7 @@ public final class MinecraftCompatImpl_26_2 implements MinecraftCompat {
         return minecraft.gameRenderer.mainRenderTarget();
     }
 
-    
+
     @NotNull
     public static Optional<SpriteBounds> itemIcon(@NotNull ItemStack stack,
                                                    @NotNull MinecraftCompatImpl_26_2 compat) {

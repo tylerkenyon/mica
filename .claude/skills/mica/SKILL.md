@@ -5,7 +5,8 @@ description: Reference for working inside the Mica library project. Use when the
 
 # Mica
 
-Mica is a thin Dear ImGui-on-Minecraft-26.2+ Vulkan overlay library. The published
+Mica is a thin Dear ImGui-on-Minecraft-26.2+ overlay library for both of Minecraft's
+rendering backends (Vulkan and OpenGL), behind one backend-independent API. The published
 artefact is a slim jar a consumer modder drops into `/libs/`; `fabric.mod.json` is
 stripped, so Fabric Loader treats it as plain library code, not a mod.
 
@@ -17,9 +18,9 @@ folder for the corresponding design doc before writing code.
 
 | Package                                        | What lives there                                                  |
 | ---------------------------------------------- | ----------------------------------------------------------------- |
-| `dev.technix.mica.api`                         | Public API: `OverlayRenderer`, `OverlayElement`, `RenderContext`, `MicaScreen`, `Palette`, `FontRegistry`, `FontFace`, `FrostedGlassStyle`, `Draw`primitives, `SpriteBounds`, `TextureFilter`, `TextureHandle`, `VanillaAtlases`. |
-| `dev.technix.mica.api.compat.v26_2`            | `MinecraftCompatImpl_26_2` — the version adapter that reaches the host's Vulkan device, command buffer and atlas sprites. The only file in the project that imports `com.mojang.*`. |
-| `dev.technix.mica.internal`                    | Renderer (`ImGuiRenderer`), Vulkan backend (`VulkanImGuiBackend`, `FrostedGlassRenderer`, `VulkanShaderCompiler`), input routing (`ImGuiInputRouter`), screen detection (`ScreenDetector`), font atlas (`ImGuiFonts`, `FontLoader`), `ActiveRenderers`. |
+| `dev.technix.mica.api`                         | Public API: `Mica`, `MicaOverlay`, `MicaTexture`, `RenderBackendType`, `MicaBackendException`, `OverlayRenderer`, `OverlayElement`, `RenderContext`, `MicaScreen`, `Palette`, `FontRegistry`, `FontFace`, `FrostedGlassStyle`, `Draw`primitives, `SpriteBounds`, `TextureFilter`, `TextureHandle`, `VanillaAtlases`. |
+| `dev.technix.mica.api.compat.v26_2`            | `MinecraftCompatImpl_26_2` — the version adapter: backend detection, `VulkanHostAccess` (device, command buffer, image views), `OpenGLHostAccess` (main target, GL texture names), atlas sprites. The only code that touches `com.mojang.blaze3d.*`. |
+| `dev.technix.mica.internal`                    | Backend-independent core (`ImGuiRenderer`, `TextureCache`, `FontData`), backends behind `internal.backend.RenderBackend`: Vulkan (`VulkanRenderBackend`, `VulkanImGuiBackend`, `FrostedGlassRenderer`, `VulkanShaderCompiler`) and OpenGL (`OpenGLRenderBackend`, `OpenGLImGuiBackend`, `OpenGLFrostedGlass`, `GlStateSnapshot`), input routing (`ImGuiInputRouter`), screen detection (`ScreenDetector`), font atlas (`ImGuiFonts`, `FontLoader`), `ActiveRenderers`. |
 | `dev.technix.mica.mixin.client`                | Mixin accessors required by the v26_2 adapter — bridge into Mojang's Vulkan bindings. |
 | `dev.technix.mica.examples`                    | `ToastElement` — a reference `OverlayElement`. The shipped icon for the library's "how do I render" surface. |
 
@@ -40,9 +41,13 @@ folder for the corresponding design doc before writing code.
 
 ## Authoring rules
 
-* **Mica is Vulkan-only.** If the host picks OpenGL, the compat layer logs a one-shot
-  WARN and elements draw nothing. `build.gradle` pins `--graphicsBackend vulkan` for
-  the `runClient` task so dev always sees the overlay.
+* **Mica supports Vulkan and OpenGL through one API.** The backend is detected at runtime
+  (`MinecraftCompat.renderBackend()`); never add backend branches to `api.*` or the core.
+  Only `internal.backend.vulkan.*` / `internal.backend.opengl.*` (and the compat adapter)
+  may import `org.lwjgl.vulkan` / `org.lwjgl.opengl`; `ApiBoundaryTest` enforces it.
+  `runClient` lets Minecraft pick; force one with `-PmicaBackend=vulkan|opengl`.
+* **Fonts go through `FontData.add(...)`**, never `addFontFromMemoryTTF(byte[])` (ImGui would
+  `free()` the Java array and abort the JVM on context destroy).
 * **Mica is not a hack-client.** It does not redirect input; it only draws.
 * **`screen` lives on `gui.screen()` in 26.2.** The old `Minecraft.screen` field moved
   to `Minecraft.gui.screen()`; `ScreenDetector` uses the new accessor. **Do not regress
@@ -55,7 +60,7 @@ folder for the corresponding design doc before writing code.
   is null and ImGui has no context yet. Hook into
   `ClientLifecycleEvents.CLIENT_STARTED.register(client -> { ... })` for runtime
   font registration, then call `FontRegistry.commitPendingFaces()`.
-* **Do not** import `com.mojang.blaze3d.vulkan.*` from anywhere in `api.*` — version-
+* **Do not** import `com.mojang.blaze3d.vulkan.*` / `.opengl.*` from anywhere in `api.*` — version-
   specific code belongs in `api.compat.v26_2.*`. The compat layer is the only place
   that is allowed to reach into Mojang.
 * **Do not** add a class to a public package without making sure it is in `api/` or
@@ -118,7 +123,7 @@ gh auth login
 
 # From the project root:
 gh repo create mica --public --source=. --remote=upstream --push \
-        --description "A small Dear ImGui port for Minecraft 26.2+ (Vulkan-only)."
+        --description "A small Dear ImGui port for Minecraft 26.2+ (Vulkan and OpenGL)."
 ```
 
 `--push` initialises main with the local tree. Subsequent commits use
@@ -142,13 +147,13 @@ If any of those fail, fix before tagging `v*`.
   in-game HUD is the first thing on screen.
 * `-PimguiDebugClear` / `-PimguiDebugSkipBlur` / `-PimguiDebugSkipDraw`: halves of the
   render pipeline that can be skipped for bisecting a misbehaving layer.
-* `-PimguiAllowNonVulkan`: opt out of the `--graphicsBackend vulkan` pin when running
-  on a non-Vulkan machine.
+* `-PmicaBackend=vulkan` / `-PmicaBackend=opengl`: force Minecraft's backend for the run.
+* `-PmicaDemoWindow`: add a plain ImGui demo window (text, button, slider, input, texture).
 
 ## Reading order for someone studying the project
 
 1. `README.md`
 2. `docs/mica/README.md`
 3. `docs/mica/setup.md`, `docs/mica/elements.md`, `docs/mica/customisation.md`
-4. `docs/mica/api.md`, `docs/mica/vulkan.md`, `docs/mica/imgui.md`
+4. `docs/mica/api.md`, `docs/mica/backends.md`, `docs/mica/vulkan.md`, `docs/mica/imgui.md`
 5. `docs/mica/internals.md`, `docs/mica/troubleshooting.md`, `docs/mica/distribution.md`

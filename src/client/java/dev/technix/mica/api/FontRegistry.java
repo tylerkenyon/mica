@@ -1,5 +1,6 @@
 package dev.technix.mica.api;
 
+import dev.technix.mica.internal.FontData;
 import dev.technix.mica.internal.FontLoader;
 import dev.technix.mica.internal.ImGuiFonts;
 import imgui.ImFont;
@@ -59,7 +60,7 @@ public final class FontRegistry {
                         name);
                 return null;
             }
-            return atlas.addFontFromMemoryTTF(data, size);
+            return FontData.add(atlas, data, size);
         } catch (RuntimeException exception) {
             LOGGER.warn("Could not rasterise {} at {}px", name, size, exception);
             return null;

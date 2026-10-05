@@ -4,12 +4,73 @@ The Mica API is divided into three groups of packages:
 
 * `dev.technix.mica.api.*` — the public surface. Consumers import from here.
 * `dev.technix.mica.api.compat.*` — version adapters (currently only `v26_2`).
-* `dev.technix.mica.internal.*` — the renderer, Vulkan backend, screen detector,
-  input router. Public by Java visibility, conceptually private.
+* `dev.technix.mica.internal.*` — the renderer core, the Vulkan and OpenGL backends,
+  screen detector, input router. Public by Java visibility, conceptually private.
+
+Nothing in `dev.technix.mica.api` (outside `compat`) exposes a Vulkan, OpenGL, GLFW
+or Mojang rendering type. The same calls work on both of Minecraft 26.2's backends;
+see [`backends.md`](./backends.md).
 
 Anything that promises more than "register HUD, draw HUD, optionally enable frosted
 glass" sits in `compat` or `internal`. The boundary is enforced socially — PRs
 cross-package-importing from `internal.*` into `api.*` should be rejected.
+
+---
+
+## `dev.technix.mica.api.Mica`
+
+The entry point most mods need.
+
+```java
+Mica mica = Mica.create();                       // defaults; installs + auto-closes
+Mica mica = Mica.builder()
+        .frostedGlass(true)                      // default true
+        .frostedGlassStyle(FrostedGlassStyle)    // default DEFAULT
+        .fontRegistry(FontRegistry)              // may chain
+        .minecraftCompat(MinecraftCompat)        // rarely needed; auto-detected
+        .closeOnClientStop(boolean)              // default true (Fabric CLIENT_STOPPING)
+        .build();
+```
+
+| Method                                             | Purpose |
+| -------------------------------------------------- | ------- |
+| `registerOverlay(MicaOverlay)` / `registerOverlay(String, MicaOverlay)` | Lambda overlay drawn every frame on every screen. Returns the wrapping `OverlayElement`. |
+| `registerOverlay(T extends OverlayElement)`        | Full element (screen scope, visibility). |
+| `unregisterOverlay(OverlayElement)`                | Remove an overlay. Any thread. |
+| `texture(Identifier, TextureFilter)`               | A `MicaTexture` for a Minecraft texture or atlas. |
+| `backend()`                                        | `Optional<RenderBackendType>`, for diagnostics only. |
+| `renderer()`                                       | The underlying `OverlayRenderer` (fonts, glass style, palette). |
+| `close()`                                          | Uninstall and release everything (render thread). |
+
+`MicaOverlay` is `@FunctionalInterface void render(RenderContext)`.
+
+---
+
+## `dev.technix.mica.api.MicaTexture`
+
+```java
+public interface MicaTexture extends AutoCloseable {
+    long imGuiTextureId();     // Dear ImGui ImTextureID for this frame; 0 if unavailable
+    default boolean isValid(); // imGuiTextureId() != 0
+    void close();              // idempotent, any thread
+}
+```
+
+Opaque and backend-independent: pass the id to `ImGui.image`, `ImDrawList.addImage`
+or `Draw.image`. Owned by the renderer; follows Minecraft re-creating the texture;
+handles for the same texture + filter share one GPU registration; the last `close()`
+releases it once no frame in flight can still sample it. Full lifetime rules are in
+[`backends.md`](./backends.md#textures).
+
+---
+
+## `dev.technix.mica.api.RenderBackendType` and `MicaBackendException`
+
+`enum RenderBackendType { VULKAN, OPENGL, UNKNOWN }`, informational only.
+`MicaBackendException` (a `RuntimeException` with `backend()`) is what
+`OverlayRenderer.failure()` reports when no renderer could start. Its message names the
+Minecraft version, detected backend, Mica version and reason. It is logged, never
+thrown into Minecraft.
 
 ---
 
@@ -23,7 +84,7 @@ thread via `GuiRendererMixin`, and exposes the rest of the API to user elements.
 ```java
 OverlayRenderer.Builder<...
 OverlayRenderer.builder()                      // static builder()
-        .withMinecraftCompat(MinecraftCompat) // Required.
+        .withMinecraftCompat(MinecraftCompat) // Optional. Default MinecraftCompat.detect().
         .withFrostedGlass(boolean)             // Optional. Default true.
         .withFrostedGlassStyle(FrostedGlassStyle) // Optional. Default DEFAULT.
         .withFontRegistry(FontRegistry)       // Optional. May chain.
@@ -39,9 +100,10 @@ OverlayRenderer.builder()                      // static builder()
 
 | Method                                                                              | Purpose                                                                                          |
 | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `prepareForFrame()`                                                                 | No-op when Vulkan is not active. Fast-path on the render thread ahead of host GUI submissions.   |
-| `renderOverlay()`                                                                   | No-op when Vulkan is not active. Drives every registered element through one frame of work, then submits into the host `VkCommandBuffer`. |
-| `close()`                                                                           | Releases every owned GPU resource (samplers, descriptor sets, font atlas upload, blur targets).  |
+| `prepareForFrame()`                                                                 | Render thread, ahead of host GUI submissions. Detects the backend on first use, starts the ImGui frame. Returns `false` (no-op) until a renderer is ready. |
+| `renderOverlay()`                                                                   | Drives every registered element through one frame of work, then hands the draw data to the active backend. No-op if `prepareForFrame()` did not start a frame. |
+| `close()`                                                                           | Releases every owned GPU resource (font atlas, pipelines/programs, texture registrations, blur targets) and the ImGui context. |
+| `activeBackend()` / `failure()`                                                     | The detected `RenderBackendType`; the `MicaBackendException` if no renderer could start.         |
 | `registerElement(OverlayElement)` / `unregisterElement(OverlayElement)`             | Add / remove an element from the per-frame draw queue. Registration order is draw order (back to front). |
 | `elements()`                                                                        | Snapshot of currently-registered elements.                                                       |
 
@@ -49,8 +111,10 @@ OverlayRenderer.builder()                      // static builder()
 
 | Method                                                  | Purpose                                                                                          |
 | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `registerAtlasTexture(Identifier, TextureFilter)`      | Returns an ImGui texture handle bound to a Minecraft atlas identifier (e.g. `minecraft:items`). Re-resolves if Mojang rebuilds the image. |
-| `minecrftCompat()`                                       | Reach the version adapter from inside an element. Convenience for advanced authors.              |
+| `texture(Identifier, TextureFilter)`                    | A long-lived `MicaTexture` for a Minecraft texture or atlas. Works on every backend. |
+| `registerAtlasTexture(Identifier, TextureFilter)`      | The current ImGui texture id for an atlas as a per-frame `TextureHandle` snapshot (cached per atlas + filter). Re-resolves if Mojang rebuilds the image. |
+| `registerRawTexture(long, int, TextureFilter)`         | **Deprecated.** Raw Vulkan image view + layout; Vulkan only, returns `0` elsewhere. |
+| `minecraftCompat()`                                     | Reach the version adapter from inside an element. Convenience for advanced authors.              |
 
 ### Customisation accessors
 
@@ -99,7 +163,7 @@ A record passed to every `render(...)` call.
 | `drawList`       | `ImDrawList`    | The Dear ImGui draw list (currently always the background list).                         |
 | `width`          | `float`         | Framebuffer width in pixels.                                                              |
 | `height`         | `float`         | Framebuffer height in pixels.                                                            |
-| `blurTextureId`  | `long`          | ImGui texture ID for the pre-blurred screen, or `0` if the blur hasn't been done.        |
+| `blurTextureId`  | `long`          | ImGui texture ID for the pre-blurred screen (either backend), or `0` if there is no blur this frame. |
 | `deltaTime`      | `float`         | Frame delta in seconds, clamped so a stalled HUD doesn't skip animation cycles.           |
 | `glassStyle`     | `FrostedGlassStyle` | The user-installed style; read by `Draw.frostedPanel(context, x, y, w, h)`.            |
 | `renderer`       | `OverlayRenderer` | The owning renderer. Reach the version adapter or texture helpers through it.            |
@@ -123,11 +187,25 @@ for the detector's per-frame work.
 ## `dev.technix.mica.api.MinecraftCompat`
 
 The Mojang-version-shaped bridge. The interface lives here; the implementation lives
-in `dev.technix.mica.api.compat.v26_2.MinecraftCompatImpl_26_2`. The builder refuses
-to build without a non-null `MinecraftCompat`.
+in `dev.technix.mica.api.compat.v26_2.MinecraftCompatImpl_26_2`.
+`MinecraftCompat.detect()` returns the adapter for the running version, and the
+builders use it by default.
 
 | Method                                              | Purpose                                                                            |
 | --------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `Optional<RenderBackendType> renderBackend()`       | Which backend Minecraft is running; empty before its GPU device exists.             |
+| `String minecraftVersion()`                         | For diagnostics.                                                                   |
+| `boolean isOnRenderThread()`                        | Guards every GPU call.                                                             |
+| `<T> Optional<T> backendAccess(Class<T>)`           | Hands Mica's internal renderers their backend-specific host access (`VulkanHostAccess`, `OpenGLHostAccess`). Not for mod code. |
+| `Optional<SpriteBounds> locateSprite(Identifier, Identifier)` | UV bounds for an arbitrary sprite in a host atlas.                       |
+| `Optional<SpriteBounds> locateItemIcon(ItemStack)` | UV bounds for an item sprite in the items atlas.                                  |
+
+The interface is backend-independent. The Vulkan-typed methods it used to have
+(`currentVulkanContext()`, `activeCommandBuffer()`, `vkImageViewFor()`,
+`isVulkanRendererActive()`) now live on `MinecraftCompatImpl_26_2` (and the internal
+`VulkanHostAccess`) only.
+
+--------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | `Optional<VulkanContext> currentVulkanContext()`   | The host's current Vulkan framebuffer state. Empty when not rendering with Vulkan. |
 | `boolean isVulkanRendererActive()`                  | Hot-path guard, used by `OverlayRenderer.prepareForFrame()`.                        |
 | `Optional<SpriteBounds> locateItemIcon(ItemStack)` | UV bounds for an item sprite in the items atlas.                                  |
@@ -208,14 +286,15 @@ public record SpriteBounds(
         @NotNull Identifier atlasId,
         float u0, float v0, float u1, float v1);
 
-public enum TextureFilter { NEAREST, LINEAR }
+public enum TextureFilter { LINEAR, NEAREST }
 
-public record TextureHandle(long imGuiTextureId, TextureFilter filter);
+public record TextureHandle(@NotNull Identifier atlasId, long imGuiTextureId) implements MicaTexture;
 ```
 
 A `SpriteBounds` is the UV rect of a sprite inside a Minecraft atlas. A `TextureHandle`
-is the cache façade that survives Mojang's atlas-image rebuild; tags are re-resolved
-every check point.
+is a per-frame snapshot returned by `registerAtlasTexture`; its `close()` is a no-op
+(the renderer owns the registration). Prefer `MicaTexture` from `texture(...)` for
+anything you keep across frames.
 
 ---
 

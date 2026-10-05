@@ -2,10 +2,9 @@ package dev.technix.mica;
 
 import dev.technix.mica.api.FontRegistry;
 import dev.technix.mica.api.FrostedGlassStyle;
-import dev.technix.mica.api.OverlayRenderer;
-import dev.technix.mica.api.compat.v26_2.MinecraftCompatImpl_26_2;
+import dev.technix.mica.api.Mica;
+import dev.technix.mica.examples.DemoWindowOverlay;
 import dev.technix.mica.examples.ToastElement;
-import dev.technix.mica.internal.ActiveRenderers;
 import imgui.ImColor;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
@@ -31,17 +30,16 @@ public class MicaClient implements ClientModInitializer {
         FontRegistry exampleFonts = new FontRegistry(
                 Identifier.fromNamespaceAndPath("mica", "font"));
 
-        OverlayRenderer renderer = OverlayRenderer.builder()
-                .withMinecraftCompat(new MinecraftCompatImpl_26_2())
-                .withFrostedGlass(true)
-                .withFrostedGlassStyle(SLEEK)
-                .withFontRegistry(exampleFonts)
+        Mica mica = Mica.builder()
+                .frostedGlass(true)
+                .frostedGlassStyle(SLEEK)
+                .fontRegistry(exampleFonts)
                 .build();
 
-        ToastElement toasts = new ToastElement();
-        renderer.registerElement(toasts);
-
-        ActiveRenderers.set(renderer);
+        ToastElement toasts = mica.registerOverlay(new ToastElement());
+        if (Boolean.getBoolean("mica.demoWindow")) {
+            mica.registerOverlay(new DemoWindowOverlay(mica));
+        }
 
         ClientLifecycleEvents.CLIENT_STARTED.register(client -> {
             exampleFonts.add("body-lg", "sf-pro-display-medium.otf", 18.0f);
@@ -50,12 +48,6 @@ public class MicaClient implements ClientModInitializer {
                     "mica",
                     "Platform initialised - Minecraft 26.2 adapter wired in.");
             LOGGER.info("mica platform initialised (Minecraft 26.2 adapter wired in).");
-        });
-
-        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
-            ActiveRenderers.set(null);
-            renderer.close();
-            LOGGER.info("mica platform shut down.");
         });
     }
 }

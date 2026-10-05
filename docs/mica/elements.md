@@ -33,13 +33,12 @@ font has been registered yet it uses Dear ImGui's built-in default font.
 Register it with:
 
 ```java
-OverlayRenderer renderer = OverlayRenderer.builder()
-        .withMinecraftCompat(new MinecraftCompatImpl_26_2())
-        .build();
-
-renderer.registerElement(new MyHudElement());
-ActiveRenderers.set(renderer);
+Mica mica = Mica.create();                 // Vulkan or OpenGL, picked automatically
+mica.registerOverlay(new MyHudElement());
 ```
+
+For a quick element with no screen scope or visibility logic, a lambda is enough:
+`mica.registerOverlay(ctx -> { ... })` (a `MicaOverlay`).
 
 ## Per-frame lifecycle
 
@@ -180,8 +179,8 @@ primitive — the safety net is there if you want it.
 | Pitfall                                                        | Symptom                              | Fix                                                              |
 | -------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------- |
 | Returning `null` from `Minecraft.getInstance()` is not handled | `NullPointerException` on first frame | Guard your `render()` early-return on the absence of player/screen. |
-| Forgetting `ActiveRenderers.set(renderer)`                    | Renderer built but no per-frame draws visible. | Set it from your client entrypoint. |
-| Using `Draw.frostedPanel` in the OpenGL fallback               | Backdrop is blank.                   | Set `--graphicsBackend vulkan` on the launcher command line.      |
+| Building an `OverlayRenderer` by hand without installing it    | Renderer built but no per-frame draws visible. | Use `Mica.create()` / `Mica.builder()...build()`, which installs it. |
+| Branching on Vulkan vs OpenGL in `render()`                    | Unnecessary code paths.              | Don't: the API is identical on both backends ([`backends.md`](./backends.md)). |
 | Holding onto a `RenderContext` past one frame                  | Hard-to-diagnose visual artifacts.   | Read `RenderContext` once per `render()` call.                    |
 
 ## Reading more

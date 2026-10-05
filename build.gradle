@@ -15,23 +15,19 @@ loom {
 
     runs {
         client {
-            // mica ships only a Vulkan renderer (see
-            // src/client/.../internal/backend/vulkan/*). Minecraft 26.2's safety net resets
-            // preferredGraphicsBackend to "default" after any crash that takes down a previous
-            // run, which on most GPUs silently flips the next run to OpenGL. Once that flip
-            // happens the mod still loads (it never throws) but never shows anything, which is
-            // confusing. Pass --graphicsBackend vulkan every time to dodge it.
-            //
-            // Opt out with -PimguiAllowNonVulkan on machines without Vulkan (CI, headless
-            // Linux without mesa-vulkan-drivers, etc.) so Minecraft can pick its own backend.
-            // The opt-out also lowers the "running on the wrong backend" log from WARN to INFO
-            // - the user knows what they asked for; no need to shout.
-            if (!project.hasProperty("imguiAllowNonVulkan")) {
+            // Mica picks its renderer from whatever backend Minecraft chooses, so by default
+            // the dev client lets Minecraft decide. Force one with
+            //   -PmicaBackend=vulkan   or   -PmicaBackend=opengl
+            // (passed through as Minecraft's --graphicsBackend argument) to test a specific path.
+            // The old -PimguiAllowNonVulkan flag is accepted and now simply means "don't force".
+            if (project.hasProperty("micaBackend")) {
                 programArg "--graphicsBackend"
-                programArg "vulkan"
+                programArg project.property("micaBackend").toString()
             }
-            if (project.hasProperty("imguiAllowNonVulkan")) {
-                vmArg "-Dimgui.allowNonVulkan=true"
+            // -PmicaDemoWindow adds a plain ImGui window (text, buttons, slider, text input,
+            // texture, frosted panel) for checking both backends by hand.
+            if (project.hasProperty("micaDemoWindow")) {
+                vmArg "-Dmica.demoWindow=true"
             }
             // Diagnostics for isolating GPU faults in the Vulkan path:
             //   -PimguiDebugClear    ImGui's pass clears its attachment magenta instead of loading
@@ -66,6 +62,15 @@ loom {
     }
 }
 
+// Unit tests cover Mica's backend-independent core (backend selection, texture lifetime,
+// API boundaries), which lives in the client source set.
+sourceSets {
+    test {
+        compileClasspath += sourceSets.client.compileClasspath + sourceSets.client.output
+        runtimeClasspath += sourceSets.client.runtimeClasspath + sourceSets.client.output
+    }
+}
+
 fabricApi {
     configureDataGeneration {
         client = true
@@ -87,18 +92,21 @@ dependencies {
     // ---- Dear ImGui (imgui-java binding) ----
     // imgui-java publishes: imgui-java-binding (core bindings) and per-OS imgui-java-natives-*
     // (the JNI native library). The GLFW/OpenGL3 backend module (imgui-java-lwjgl3) is NOT used:
-    // this mod is strictly Vulkan and ships its own renderer in
-    // src/client/.../backend/vulkan (VulkanImGuiBackend).
+    // Mica ships its own renderers on Minecraft's device, in src/client/.../backend/vulkan
+    // (VulkanImGuiBackend) and src/client/.../backend/opengl (OpenGLImGuiBackend). The OpenGL one
+    // needs per-texture sampler objects, which imgui-java's ImGuiImplGl3 cannot do, and
+    // imgui-java-lwjgl3 would drag a second set of LWJGL modules (GLFW, OpenGL, SDL) into the graph.
     implementation "io.github.spair:imgui-java-binding:${project.imgui_version}"
     implementation "io.github.spair:imgui-java-natives-windows:${project.imgui_version}"
     implementation "io.github.spair:imgui-java-natives-linux:${project.imgui_version}"
     implementation "io.github.spair:imgui-java-natives-macos:${project.imgui_version}"
 
-    // ---- LWJGL Vulkan + Shaderc ----
-    // NOTE: Minecraft 26.x already bundles org.lwjgl:lwjgl-vulkan and org.lwjgl:lwjgl-shaderc
-    // (with natives) as part of its own libraries, so they are NOT declared here; they are used
-    // directly by the Vulkan backend (org.lwjgl.vulkan / org.lwjgl.util.shaderc). On Windows and
-    // Linux the Vulkan loader is provided by the OS drivers; on macOS LWJGL ships MoltenVK.
+    // ---- LWJGL Vulkan + Shaderc + OpenGL ----
+    // NOTE: Minecraft 26.x already bundles org.lwjgl:lwjgl-vulkan, org.lwjgl:lwjgl-shaderc and
+    // org.lwjgl:lwjgl-opengl (with natives) as part of its own libraries, so they are NOT declared
+    // here; they are used directly by the backends (org.lwjgl.vulkan / org.lwjgl.util.shaderc /
+    // org.lwjgl.opengl). On Windows and Linux the Vulkan loader is provided by the OS drivers; on
+    // macOS LWJGL ships MoltenVK.
 
     // Nest every imgui-java library jar inside the mod jar (jar-in-jar) so the mod ships
     // self-contained for every platform (Windows / Linux / macOS incl. Apple Silicon).
@@ -106,6 +114,14 @@ dependencies {
     include "io.github.spair:imgui-java-natives-windows:${project.imgui_version}"
     include "io.github.spair:imgui-java-natives-linux:${project.imgui_version}"
     include "io.github.spair:imgui-java-natives-macos:${project.imgui_version}"
+
+    testImplementation platform("org.junit:junit-bom:${project.junit_version}")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+test {
+    useJUnitPlatform()
 }
 
 processResources {
@@ -113,6 +129,10 @@ processResources {
     inputs.property "minecraft_version", project.minecraft_version
     inputs.property "loader_version", project.loader_version
     filteringCharset "UTF-8"
+
+    filesMatching("mica-version.properties") {
+        expand "version": project.version
+    }
 
     filesMatching("fabric.mod.json") {
         expand "version": project.version,

@@ -3,15 +3,26 @@
 Mica uses the [imgui-java binding](https://github.com/SpaiR/imgui-java)
 (version `1.92.7.1` at the time of writing). Everything Dear ImGui does inside
 Mica flows through this Java binding's `imgui.*` package - draw lists,
-`ImGuiIO`, `ImVec2`, and so on. The ImGui backend itself lives in
-`dev.technix.mica.internal.backend.vulkan.VulkanImGuiBackend`.
+`ImGuiIO`, `ImVec2`, and so on. The ImGui context and frame live in the
+backend-independent `dev.technix.mica.internal.ImGuiRenderer`; the draw-data
+renderers live in `internal.backend.vulkan.VulkanImGuiBackend` and
+`internal.backend.opengl.OpenGLImGuiBackend`. imgui-java's own `imgui-java-lwjgl3`
+module (GLFW/GL3 backends) is not used; see [`backends.md`](./backends.md).
 
 ## Font handling
 
 Mica ships four SF Pro Display faces (`regular`, `medium`, `bold`, `logo`)
 under `assets/mica/font/*.otf`, loaded through `dev.technix.mica.internal.ImGuiFonts`.
-The atlas is rasterised once, at `VulkanImGuiBackend.init()`, and uploaded
-into Minecraft's frame command buffer (the `recordPendingTransfers` path).
+The atlas is rasterised once, when the backend initialises. Vulkan records the
+upload into Minecraft's frame command buffer (the `recordPendingTransfers` path);
+OpenGL uploads it synchronously.
+
+Font bytes go to ImGui through `internal.FontData`, never through
+`addFontFromMemoryTTF(byte[])`. That imgui-java call hands ImGui a pointer into the
+Java array, which ImGui later `free()`s, aborting the JVM on `ImGui.destroyContext()`
+or `ImFontAtlas.clear()`. `FontData` wraps the bytes in an uncompressed
+`stb_compress` stream and loads them with `addFontFromMemoryCompressedTTF`, the one
+entry point where ImGui allocates and owns its own copy.
 
 The four faces each have a fixed pixel size - that's a current
 `imgui-java 1.92` constraint (`ImGui.pushFont(int)` is `int`, not `float`):
