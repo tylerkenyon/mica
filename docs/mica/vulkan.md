@@ -1,7 +1,10 @@
 # Vulkan backend in Mica
 
-Mica supports both of Minecraft 26.2's backends (see [`backends.md`](./backends.md)).
-This page documents the parts of the 26.2 Vulkan pipeline that affect the Vulkan
+Mica supports both rendering backends on Minecraft 26.2 and 26.3 (see
+[`backends.md`](./backends.md)). This page documents the parts of the Vulkan pipeline
+(26.2's Blaze3d Vulkan backend; 26.3 moved the same classes to
+`com.mojang.renderpearl.backend.vulkan`; the members Mica uses kept their API, checked at
+build time for both versions) that affect the Vulkan
 renderer's correctness, for anyone digging into
 `src/client/java/dev/technix/mica/internal/backend/vulkan/*`.
 `VulkanRenderBackend` adapts these classes to the backend-independent `RenderBackend`

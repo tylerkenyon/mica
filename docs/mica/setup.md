@@ -6,19 +6,21 @@ initialisation step on your client entrypoint.
 
 ## 1. Acquire the jar
 
-Download `mica-<version>.zip` from the GitHub Releases page. There is no Maven Central
-publication yet; every release ships as a GitHub asset.
+Download the zip for your Minecraft version from the GitHub Releases page:
+`mica-lib-<version>+mc26.2.zip` or `mica-lib-<version>+mc26.3.zip`. There is no Maven
+Central publication yet; every release ships as GitHub assets. The API is the same in both
+([`multiversion.md`](./multiversion.md)).
 
 Unzip:
 
 ```
-mica-<version>-lib/
-├── mica-<version>.jar
+mica-lib-<version>+mc<minecraft>/
+├── mica-lib-<version>+mc<minecraft>.jar
 ├── LICENSE.txt
 └── library-README.md
 ```
 
-Copy `mica-<version>.jar` into your consumer mod's `libs/` directory.
+Copy the jar into your consumer mod's `libs/` directory.
 
 ## 2. Wire the dependency in your build script
 
@@ -26,7 +28,7 @@ Copy `mica-<version>.jar` into your consumer mod's `libs/` directory.
 
 ```groovy
 dependencies {
-    implementation files("libs/mica-<version>.jar")
+    implementation files("libs/mica-lib-<version>+mc26.3.jar")
 }
 ```
 
@@ -34,7 +36,7 @@ dependencies {
 
 ```kotlin
 dependencies {
-    implementation(files("libs/mica-<version>.jar"))
+    implementation(files("libs/mica-lib-<version>+mc26.3.jar"))
 }
 ```
 
@@ -45,7 +47,7 @@ name. The file-deps path is the simplest.
 └── your-mod/
     ├── build.gradle
     ├── libs/
-    │   └── mica-0.1.jar       (drop the version you ship)
+    │   └── mica-lib-0.1+mc26.3.jar   (the Mica version + your Minecraft version)
     └── src/main/...
 ```
 
@@ -61,7 +63,7 @@ read this field.
   "version": "${version}",
   "depends": {
     "fabricloader": ">=0.19.0",
-    "minecraft": "~26.2"
+    "minecraft": "~26.3"
   },
   "custom": {
     "mica:required": true,
@@ -125,7 +127,9 @@ renderer.registerElement(new MyHudElement());
 ActiveRenderers.set(renderer);                                  // internal; prefer Mica
 ```
 
-`withMinecraftCompat` is optional now (`MinecraftCompat.detect()` is the default).
+`withMinecraftCompat` is optional now (`MinecraftCompat.detect()` returns the adapter
+for the jar's Minecraft version; `MinecraftCompatImpl_26_2` only exists in the 26.2 jar,
+`MinecraftCompatImpl_26_3` only in the 26.3 jar).
 `MinecraftCompat` itself lost its Vulkan-typed methods (`currentVulkanContext()`,
 `activeCommandBuffer()`, `vkImageViewFor()`, `isVulkanRendererActive()`). They
 remain public on `MinecraftCompatImpl_26_2`, but are no longer part of the
@@ -141,7 +145,7 @@ backend-independent interface.
 
 ## Rendering backends
 
-Both of Minecraft 26.2's backends are supported, and Mica follows whichever one
+Both rendering backends are supported on 26.2 and 26.3, and Mica follows whichever one
 Minecraft chose. If Mica cannot start a renderer for it, the log gets a single ERROR
 like:
 

@@ -1,4 +1,4 @@
-# mica — ImGui-style overlay library for Minecraft 26.2+ (Vulkan and OpenGL)
+# mica — ImGui-style overlay library for Minecraft 26.2 and 26.3 (Vulkan and OpenGL)
 
 A small Dear ImGui port that draws HUDs, toast notifications, and procedural text/sprite
 overlays into the same framebuffer the game itself renders into, on Minecraft 26.2+ with
@@ -10,7 +10,7 @@ and picks the matching renderer; your code is identical for both.
 | Package                            | What it is                                                                |
 | ---------------------------------- | ------------------------------------------------------------------------- |
 | `dev.technix.mica.api`             | The public API — `Mica`, `MicaOverlay`, `MicaTexture`, `RenderBackendType`, `OverlayRenderer`, `OverlayElement`, `RenderContext`, `Draw`, `Palette`, `FontRegistry`, `FontFace`, `FrostedGlassStyle`, `MicaScreen`, `SpriteBounds`, `TextureFilter`, `TextureHandle`, `VanillaAtlases`. |
-| `dev.technix.mica.api.compat.v26_2` | `MinecraftCompatImpl_26_2` — the version adapter: detects the rendering backend and reaches the host's Vulkan device / OpenGL render target and atlas sprites. |
+| `dev.technix.mica.api.compat.v26_2` / `v26_3` | `MinecraftCompatImpl_26_2` or `_26_3` (whichever matches this jar) — the version adapter: detects the rendering backend and reaches the host's Vulkan device / OpenGL render target and atlas sprites. |
 | `dev.technix.mica.examples`        | `ToastElement` — a reference `OverlayElement`.                            |
 | `dev.technix.mica.internal`        | The backend-independent renderer core, the Vulkan and OpenGL backends, the input router, the screen detector, the font atlas loader. Public by Java visibility, conceptually private — application code should not depend on these symbols. |
 | `dev.technix.mica.mixin.client`    | Mixin accessors required by the v26_2 adapter.                              |
@@ -22,18 +22,19 @@ as a separate mod entry.
 
 ## Requirements
 
-* Minecraft **26.2**, on the **Vulkan** or the **OpenGL** backend (detected at runtime).
+* Minecraft **26.2** or **26.3**: this jar's file name says which (`+mc26.2` / `+mc26.3`).
+  Use the jar built for your Minecraft version. Either backend (Vulkan or OpenGL) works.
 * Fabric Loader and Fabric API on the consumer side, with this jar in the consumer mod's `/libs/`.
 * A JDK that matches loom's `targetJavaVersion` (currently 25).
 
 ## Install into your mod
 
-1. Copy this jar — `mica-<version>.jar` — into your mod project's `libs/` folder.
+1. Copy this jar — `mica-lib-<version>+mc<minecraft>.jar` — into your mod project's `libs/` folder.
 2. Add an explicit file dependency in your `build.gradle`:
 
    ```groovy
    dependencies {
-       implementation files("libs/mica-<version>.jar")
+       implementation files("libs/mica-lib-<version>+mc<minecraft>.jar")
    }
    ```
 3. Declare a `dependencies` entry in your `fabric.mod.json` so other modders know

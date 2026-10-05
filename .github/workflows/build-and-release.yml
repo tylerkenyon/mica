@@ -1,9 +1,10 @@
 # GitHub Actions workflow for mica.
 #
 # Layout:
-#   - job `build`:   runs on every push and PR. Validates the build, then runs the
-#                    `dist` pipeline (which produces dist/<name>-lib-<version>.zip
-#                    with the slim library jar + LICENSE.txt + library-README.md).
+#   - job `build`:   runs on every push and PR. Builds and tests every Minecraft
+#                    version of the Stonecutter tree (26.2, 26.3), then runs the
+#                    `dist` pipeline (one dist/<name>-lib-<version>+mc<mc>.zip per
+#                    version: slim library jar + LICENSE.txt + library-README.md).
 #                    Uploads the zip as a workflow artifact for any concurrent run.
 #   - job `release-dev`: runs on push to main, or on a `v*` tag. Tags and uploads
 #                    the same `dist/*.zip` to GitHub Releases. Pushes to main upload

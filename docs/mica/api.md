@@ -3,12 +3,12 @@
 The Mica API is divided into three groups of packages:
 
 * `dev.technix.mica.api.*` — the public surface. Consumers import from here.
-* `dev.technix.mica.api.compat.*` — version adapters (currently only `v26_2`).
+* `dev.technix.mica.api.compat.*` — version adapters (`v26_2`, `v26_3`; each jar contains the one for its Minecraft version).
 * `dev.technix.mica.internal.*` — the renderer core, the Vulkan and OpenGL backends,
   screen detector, input router. Public by Java visibility, conceptually private.
 
 Nothing in `dev.technix.mica.api` (outside `compat`) exposes a Vulkan, OpenGL, GLFW
-or Mojang rendering type. The same calls work on both of Minecraft 26.2's backends;
+or Mojang rendering type. The same calls work on Minecraft 26.2 and 26.3 and on both backends;
 see [`backends.md`](./backends.md).
 
 Anything that promises more than "register HUD, draw HUD, optionally enable frosted
@@ -187,7 +187,8 @@ for the detector's per-frame work.
 ## `dev.technix.mica.api.MinecraftCompat`
 
 The Mojang-version-shaped bridge. The interface lives here; the implementation lives
-in `dev.technix.mica.api.compat.v26_2.MinecraftCompatImpl_26_2`.
+in `dev.technix.mica.api.compat.v26_2.MinecraftCompatImpl_26_2` (26.2 jar) and
+`dev.technix.mica.api.compat.v26_3.MinecraftCompatImpl_26_3` (26.3 jar).
 `MinecraftCompat.detect()` returns the adapter for the running version, and the
 builders use it by default.
 
@@ -196,13 +197,15 @@ builders use it by default.
 | `Optional<RenderBackendType> renderBackend()`       | Which backend Minecraft is running; empty before its GPU device exists.             |
 | `String minecraftVersion()`                         | For diagnostics.                                                                   |
 | `boolean isOnRenderThread()`                        | Guards every GPU call.                                                             |
+| `double[] cursorPosition()`                          | Cursor position in window coordinates; read once per frame for ImGui. |
+| `void setTextInputActive(boolean)`                  | Starts/stops platform text input while an ImGui text field is focused (SDL on 26.3; no-op on 26.2). |
 | `<T> Optional<T> backendAccess(Class<T>)`           | Hands Mica's internal renderers their backend-specific host access (`VulkanHostAccess`, `OpenGLHostAccess`). Not for mod code. |
 | `Optional<SpriteBounds> locateSprite(Identifier, Identifier)` | UV bounds for an arbitrary sprite in a host atlas.                       |
 | `Optional<SpriteBounds> locateItemIcon(ItemStack)` | UV bounds for an item sprite in the items atlas.                                  |
 
 The interface is backend-independent. The Vulkan-typed methods it used to have
 (`currentVulkanContext()`, `activeCommandBuffer()`, `vkImageViewFor()`,
-`isVulkanRendererActive()`) now live on `MinecraftCompatImpl_26_2` (and the internal
+`isVulkanRendererActive()`) now live on the version adapters (and the internal
 `VulkanHostAccess`) only.
 
 --------------------------------------------------- | ---------------------------------------------------------------------------------- |

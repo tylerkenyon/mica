@@ -118,27 +118,31 @@ between:
 It also holds the staging-area references for `FontRegistry` /
 `FrostedGlassStyle` so authors can stage them before invoking the builder.
 
-## Compatibility adapter
+## Compatibility adapters
 
-`dev.technix.mica.api.compat.v26_2.MinecraftCompatImpl_26_2` is the only code in the
-project that touches Mojang's rendering internals (`com.mojang.blaze3d.*`). It
-implements:
+`dev.technix.mica.api.compat.v26_2.MinecraftCompatImpl_26_2` (Blaze3d, GLFW) and
+`dev.technix.mica.api.compat.v26_3.MinecraftCompatImpl_26_3` (Renderpearl, SDL) are the
+only code in the project that touches Mojang's rendering internals. Each is wrapped in a
+Stonecutter version condition, so the 26.2 jar contains only the first and the 26.3 jar
+only the second; `MinecraftCompat.detect()` returns the one that exists. Each implements:
 
 * `MinecraftCompat`: backend detection (`renderBackend()`), version, render-thread
-  check, sprite lookup.
+  check, cursor position, text input (SDL on 26.3), sprite lookup.
 * `VulkanHostAccess`: `VulkanContext`, the frame `VkCommandBuffer`, image views.
 * `OpenGLHostAccess`: the main render target's GL colour texture and size, and texture
-  GL names (via `GlTextureNames`, reflective because `GlTexture`'s internals are not
-  public API).
+  GL names (via `internal.backend.opengl.GlTextureNames`, reflective and
+  version-independent).
 
-A future Minecraft release becomes `MinecraftCompatImpl_v26_3` (or `v27_0`, depending
-on the version). It implements the same interfaces and is returned by
-`MinecraftCompat.detect()`.
+A future Minecraft release is added as described in [`multiversion.md`](./multiversion.md):
+a new entry in `settings.gradle`, version conditions where Mojang moved things, and if
+necessary a new guarded adapter.
 
 ## Mixin accessors
 
 `dev.technix.mica.mixin.client.*` exposes Mojang-private methods and fields via
-accessor interfaces. These are necessary because the 26.2 Vulkan adapter needs
+accessor interfaces (their targets are version-guarded: `GpuDevice` → `FrontendGpuDevice`,
+`textureInitCommandBuffer` → `objectInitCommandBuffer` on 26.3; `MixinTargetsTest` checks
+them against each version's jar). They are necessary because the Vulkan adapters need
 to read Mojang-internal state (`getCurrentSceneImage`,
 `getCurrentSceneImageLayout`) without conferring public visibility.
 

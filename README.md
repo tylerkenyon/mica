@@ -1,6 +1,6 @@
 # Mica
 
-A Dear ImGui overlay library for Minecraft 26.2, on both Vulkan and OpenGL.
+A Dear ImGui overlay library for Minecraft 26.2 and 26.3, on both Vulkan and OpenGL.
 
 Build custom HUDs, panels and interfaces directly inside Minecraft's render
 pipeline. Mica detects whether Minecraft runs Vulkan or OpenGL and picks the
@@ -25,8 +25,8 @@ Until you have sponsors, leave this comment in place and the section renders emp
 
 ## What Mica is
 
-A vector-overlay library for Minecraft 26.2 (Vulkan and OpenGL), distributed as a
-single jar. You author an `OverlayElement` (or a `ctx -> { ... }` lambda) that emits
+A vector-overlay library for Minecraft 26.2 and 26.3 (Vulkan and OpenGL), distributed as
+one jar per Minecraft version. You author an `OverlayElement` (or a `ctx -> { ... }` lambda) that emits
 Dear ImGui draw calls into a Minecraft `RenderContext`, register it with `Mica`, and your element is
 drawn every frame behind (or on top of) the vanilla UI on whichever screens you
 declared. The platform handles backend detection, the frosted-glass backdrop, GPU
@@ -50,6 +50,7 @@ Three things Mica is not:
 | ----------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Vulkan **and** OpenGL         | One backend-independent API; the renderer matching Minecraft's backend is picked automatically.      |
 | Single-jar dispatch           | Mica jars imgui-java; LWJGL Vulkan/OpenGL come from Minecraft 26.2's own libraries.                   |
+| Minecraft 26.2 **and** 26.3   | One source tree built with Stonecutter into one jar per Minecraft version; same API in each. |
 | Opaque textures               | `MicaTexture` wraps Minecraft textures/atlases for ImGui on every backend, with explicit, thread-safe lifetime. |
 | Drop into `/libs/`            | Consumers do not need `fabric.mod.json` semantics from Mica; the published jar registers as plain library code, not a conflicting mod entry. |
 | Render scopes                 | Each element declares a `MicaScreen` (`TITLE`, `IN_GAME_HUD`, `PAUSE`, `INVENTORY`, `CHAT`, `ANY`). The platform consults `Minecraft.getInstance().gui.screen()` each frame. |
@@ -67,6 +68,7 @@ Three things Mica is not:
 | [`docs/mica/contexts.md`](docs/mica/contexts.md)       | The `MicaScreen` enum and how the renderer filters it.                         |
 | [`docs/mica/customisation.md`](docs/mica/customisation.md) | Wiring your own `FontRegistry` and `FrostedGlassStyle`.                         |
 | [`docs/mica/api.md`](docs/mica/api.md)                  | Symbol-by-symbol reference.                                                   |
+| [`docs/mica/multiversion.md`](docs/mica/multiversion.md) | Minecraft 26.2 + 26.3 builds with Stonecutter: which jar to use, building, version-specific code. |
 | [`docs/mica/backends.md`](docs/mica/backends.md)        | Vulkan + OpenGL support, automatic detection, textures, backend differences, adding a backend. |
 | [`docs/mica/vulkan.md`](docs/mica/vulkan.md)            | Vulkan specifics of the 26.2 backend.                                          |
 | [`docs/mica/imgui.md`](docs/mica/imgui.md)              | imgui-java notes that are not obvious from the upstream README.                |
@@ -77,13 +79,14 @@ Three things Mica is not:
 ## Quick start for consumers
 
 The published artifact is in your consumer mod's `/libs/` folder as
-`mica-<version>.jar`. In your `build.gradle`:
+`mica-lib-<version>+mc<minecraft>.jar`. Pick the jar for your Minecraft version (26.2 or 26.3).
+In your `build.gradle`:
 
 ```groovy
 repositories { mavenCentral() }
 
 dependencies {
-    implementation files("libs/mica-<version>.jar")
+    implementation files("libs/mica-lib-<version>+mc26.3.jar")
 }
 ```
 
@@ -117,7 +120,8 @@ your own.
 
 ## Requirements
 
-* Minecraft **26.2**, on the **Vulkan** or the **OpenGL** backend (detected at runtime).
+* Minecraft **26.2** or **26.3** (use the matching Mica jar), on the **Vulkan** or the
+  **OpenGL** backend (detected at runtime).
 * Fabric Loader and Fabric API on the consumer end, with Mica in `/libs/`.
 * A JDK that matches loom's `targetJavaVersion` (currently 25).
 
@@ -128,9 +132,10 @@ publishing.
 
 | Task                         | Output                                                                                |
 | ---------------------------- | ------------------------------------------------------------------------------------- |
-| `./gradlew build`            | The whole project (includes any out-of-tree HUD examples you keep). Not for distribution. |
-| `./gradlew libraryJar`       | The slim library jar only (consumer-facing artefact).                                  |
-| `./gradlew dist`             | `mica-<version>.zip` containing the slim jar plus `LICENSE.txt` and `library-README.md`. |
+| `./gradlew build`            | Builds and tests every Minecraft version (`:26.2`, `:26.3`). Not for distribution. |
+| `./gradlew libraryJar`       | The slim library jar per version (consumer-facing artefact).                           |
+| `./gradlew dist`             | `dist/mica-lib-<version>+mc<mc>.zip` per version: slim jar + `LICENSE.txt` + `library-README.md`. |
+| `./gradlew :26.3:runClient`  | Dev client for one version (`-PmicaBackend`, `-PmicaDemoWindow` as before).           |
 | `./gradlew clean`            | Wipes `build/`. Useful to recover from a stale-build trap.                            |
 
 The release pipeline (build verify + dev pre-release on every push, full release on
@@ -141,9 +146,9 @@ contains and excludes.
 ## Architectural notes
 
 * `dev.technix.mica.api.*` — the public surface. Consumers import from here.
-* `dev.technix.mica.api.compat.v26_2.*` — the version adapter: rendering-backend
-  detection plus Vulkan and OpenGL host access. New Minecraft releases become new
-  adapters; the public API does not need to change.
+* `dev.technix.mica.api.compat.v26_2.*` / `v26_3.*` — the version adapters: rendering-backend
+  detection plus Vulkan and OpenGL host access. Each is compiled only into its own
+  version's jar (Stonecutter); the public API does not change between versions.
 * `dev.technix.mica.internal.*` — the backend-independent core (`ImGuiRenderer`:
   ImGui context, frame lifecycle, textures), the screen detector, the input router,
   the font atlas, the active-renderer registry.
@@ -170,8 +175,10 @@ build if the public API or the core references Vulkan/OpenGL types.
 * imgui-java binding — https://github.com/SpaiR/imgui-java
 * Vulkan 1.x spec — https://registry.khronos.org/vulkan/
 * OpenGL 3.3 core spec — https://registry.khronos.org/OpenGL/
-* Minecraft 26.2 (`com.mojang.blaze3d.vulkan`, `com.mojang.blaze3d.opengl`) —
-  `GuiRenderer` and `RenderTarget` are the entrypoints behind `MinecraftCompatImpl_26_2`.
+* Minecraft 26.2 (`com.mojang.blaze3d.vulkan`, `com.mojang.blaze3d.opengl`) and 26.3
+  (`com.mojang.renderpearl.backend.*`) — `GuiRenderer` and `RenderTarget` are the
+  entrypoints behind `MinecraftCompatImpl_26_2` / `MinecraftCompatImpl_26_3`.
+* Stonecutter — https://stonecutter.kikugie.dev/
 
 ## License
 
