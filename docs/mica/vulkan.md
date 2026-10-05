@@ -1,8 +1,11 @@
 # Vulkan backend in Mica
 
-Mica is Vulkan-only in Minecraft 26.2. This page documents the parts of the
-26.2 Vulkan pipeline that affect Mica's correctness, for anyone digging into
+Mica supports both of Minecraft 26.2's backends (see [`backends.md`](./backends.md)).
+This page documents the parts of the 26.2 Vulkan pipeline that affect the Vulkan
+renderer's correctness, for anyone digging into
 `src/client/java/dev/technix/mica/internal/backend/vulkan/*`.
+`VulkanRenderBackend` adapts these classes to the backend-independent `RenderBackend`
+interface; their behaviour is unchanged.
 
 ## Reference
 
@@ -55,20 +58,12 @@ information rather than binding pre-baked `VkRenderPass` objects. Mica's
 `vkCmdBeginRenderingKHR` scope - the platform does not assume the host has a
 render pass open at the time it samples the framebuffer.
 
-## OpenGL fallback
+## When Minecraft runs OpenGL
 
-Mica is **Vulkan-only**. The compat layer logs a one-shot `WARN` if it sees
-a non-`VulkanDevice` GpuDevice (the line in `MinecraftCompatImpl_26_2.vulkanDevice()`):
-
-```
-imgui-mc-impl requires Vulkan - host GpuDevice is active as <Backend>, not VulkanDevice.
-The ImGui overlay will be invisible on this run. Force Vulkan with --graphicsBackend vulkan
-(build.gradle does this by default for the runClient task).
-```
-
-If you boot with `-PimguiAllowNonVulkan`, the message drops to `INFO` rather
-than `WARN` so you can iterate on a Vulkan-less machine without the log
-shouting at you.
+The Vulkan renderer is only created when Minecraft's `GpuDevice` backend is a
+`VulkanDevice`. On OpenGL, Mica uses its OpenGL renderer instead
+(`internal/backend/opengl`, see [`backends.md`](./backends.md)); there is no
+"Vulkan required" warning any more, and Mica never asks Minecraft to switch backends.
 
 ## Image orientation
 

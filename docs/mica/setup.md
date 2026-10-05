@@ -70,61 +70,88 @@ read this field.
 }
 ```
 
-## 4. Initialise the renderer
+## 4. Initialise Mica
 
 ```java
 public final class FabricClientEntry implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        OverlayRenderer renderer = OverlayRenderer.builder()
-                .withMinecraftCompat(new MinecraftCompatImpl_26_2())
-                .withFrostedGlass(true)
-                .build();
-
-        renderer.registerElement(new MyHudElement());
-        ActiveRenderers.set(renderer);
+        Mica mica = Mica.create();
+        mica.registerOverlay(new MyHudElement());
     }
 }
 ```
+
+`Mica.create()` builds the renderer, installs it as the active overlay and registers a
+Fabric `CLIENT_STOPPING` hook that closes it. Nothing touches the GPU yet: Minecraft has
+not created its device at `onInitializeClient` time. On the first frame, Mica detects
+whether Minecraft runs **Vulkan or OpenGL** and starts the matching renderer. Your code
+does not change between the two ([`backends.md`](./backends.md)).
 
 The mixin in Mica (loaded with the consumer mod because Mica's jar carries the mixin
 config) drives the per-frame `prepareForFrame()` and `renderOverlay()` calls. The
 mixin only runs on the render thread, on the client side, after `GuiRenderer`
 finishes its vanilla GUI submissions.
 
-## 5. Tear down on shutdown
+Options live on the builder:
 
 ```java
-ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
-    ActiveRenderers.set(null);
-    renderer.close();
-});
+Mica mica = Mica.builder()
+        .frostedGlass(true)
+        .frostedGlassStyle(myStyle)
+        .fontRegistry(myFonts)
+        .closeOnClientStop(true)      // default
+        .build();
 ```
 
-`close()` releases Vulkan descriptor pools, the font atlas upload resource, and the
-two ping-pong blur targets.
+## 5. Tear down on shutdown
+
+Automatic with `Mica.create()`. If you disabled `closeOnClientStop`, call
+`mica.close()` on the render thread (for example from `CLIENT_STOPPING`). It
+releases every GPU resource Mica owns (Vulkan descriptor pools and blur targets, or
+OpenGL programs, buffers, textures and framebuffers) and the ImGui context.
+
+### Migrating from `OverlayRenderer.builder()`
+
+The 0.1 setup still compiles and works on both backends:
+
+```java
+OverlayRenderer renderer = OverlayRenderer.builder()
+        .withMinecraftCompat(new MinecraftCompatImpl_26_2())   // now optional
+        .withFrostedGlass(true)
+        .build();
+renderer.registerElement(new MyHudElement());
+ActiveRenderers.set(renderer);                                  // internal; prefer Mica
+```
+
+`withMinecraftCompat` is optional now (`MinecraftCompat.detect()` is the default).
+`MinecraftCompat` itself lost its Vulkan-typed methods (`currentVulkanContext()`,
+`activeCommandBuffer()`, `vkImageViewFor()`, `isVulkanRendererActive()`). They
+remain public on `MinecraftCompatImpl_26_2`, but are no longer part of the
+backend-independent interface.
 
 ## What goes wrong if you skip a step
 
 | You skip…                                     | You see…                                                          |
 | --------------------------------------------- | ----------------------------------------------------------------- |
-| `withMinecraftCompat(...)`                    | `IllegalStateException` at builder time.                           |
-| The `libs/` drop                              | `NoClassDefFoundError: dev/technix/mica/api/OverlayRenderer` on the first class load. |
-| `ActiveRenderers.set(renderer)`               | Renderer exists but none of its `renderOverlay()` triggers fire.   |
-| `withFrostedGlass(true)` (omit)               | Panes draw without a backdrop. Use the explicit `Draw.frostedPanel` overloads to hand-draw the backdrop. |
+| The `libs/` drop                              | `NoClassDefFoundError: dev/technix/mica/api/Mica` on the first class load. |
+| `Mica.create()` (building an `OverlayRenderer` by hand and never installing it) | Renderer exists but none of its `renderOverlay()` triggers fire.   |
+| `frostedGlass(true)` (set to `false`)         | Panes draw without a backdrop.                                    |
 
-## OpenGL fallback
+## Rendering backends
 
-If Minecraft 26.2 picks the OpenGL backend, Mica's renderer is silently inert: the
-mixin calls `prepareForFrame()` and `renderOverlay()`, both of which `isVulkanActive()`
-gates. A single WARN line appears in the log:
+Both of Minecraft 26.2's backends are supported, and Mica follows whichever one
+Minecraft chose. If Mica cannot start a renderer for it, the log gets a single ERROR
+like:
 
 ```
-imgui-mc-impl requires Vulkan — host GpuDevice is active as X, not VulkanDevice.
+Mica could not start its renderer (Minecraft 26.2, rendering backend OpenGL, Mica 0.1).
+Reason: ... The overlay is disabled for this session.
 ```
 
-Run with `--graphicsBackend vulkan` on the launcher command line to force Vulkan.
+The game keeps running; only the overlay is off. See
+[`troubleshooting.md`](./troubleshooting.md).
 
 ## Where to go next
 

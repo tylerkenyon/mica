@@ -4,7 +4,7 @@ import dev.technix.mica.internal.ActiveRenderers;
 import dev.technix.mica.internal.ImGuiFonts;
 import dev.technix.mica.internal.ImGuiRenderer;
 import dev.technix.mica.internal.ScreenDetector;
-import dev.technix.mica.internal.backend.vulkan.FrostedGlassRenderer;
+import dev.technix.mica.internal.backend.RenderBackends;
 import dev.technix.mica.internal.util.Theme;
 import imgui.ImDrawList;
 import imgui.ImGui;
@@ -17,49 +17,47 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
-import static org.lwjgl.vulkan.VK10.VK_IMAGE_LAYOUT_GENERAL;
 
-
+/**
+ * The overlay render loop. Owns the registered {@link OverlayElement}s and Mica's renderer,
+ * which drives whichever GPU backend Minecraft is running (Vulkan or OpenGL, picked
+ * automatically). Nothing on this class depends on the backend.
+ *
+ * <p>Most mods should use {@link Mica#create()}, which builds and installs one of these.
+ *
+ * <p>Threading: elements are rendered on Minecraft's render thread only.
+ * {@link #registerElement(OverlayElement)}, {@link #unregisterElement(OverlayElement)} and
+ * {@link MicaTexture#close()} are safe from any thread.
+ */
 public final class OverlayRenderer implements AutoCloseable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("mica");
 
     private final MinecraftCompat compat;
-    private final FrostedGlassRenderer frostedGlass;
+    private final boolean frostedGlass;
     private final ImGuiRenderer renderer;
-    private final List<FontRegistry> fontRegistries;
-    private final List<OverlayElement> elements = new ArrayList<>();
-    private final List<OverlayElement> failed = new ArrayList<>();
-    private final List<TextureRegistration> registrations = new ArrayList<>();
+    private final List<OverlayElement> elements = new CopyOnWriteArrayList<>();
+    private final Set<OverlayElement> failed = ConcurrentHashMap.newKeySet();
+    private final List<AtlasRegistration> registrations = new CopyOnWriteArrayList<>();
 
 
     private volatile FrostedGlassStyle frostedGlassStyle = FrostedGlassStyle.DEFAULT;
 
 
-    private static final class TextureRegistration {
-        final Identifier atlasId;
-        final TextureFilter filter;
-        long cachedImageView;
-        long cachedTextureId;
-
-        TextureRegistration(Identifier atlasId, TextureFilter filter) {
-            this.atlasId = atlasId;
-            this.filter = filter;
-        }
+    private record AtlasRegistration(Identifier atlasId, TextureFilter filter, MicaTexture texture) {
     }
 
-    private OverlayRenderer(MinecraftCompat compat, FrostedGlassRenderer frostedGlass,
-                            ImGuiRenderer renderer, List<FontRegistry> fontRegistries,
+    private OverlayRenderer(MinecraftCompat compat, boolean frostedGlass, ImGuiRenderer renderer,
                             FrostedGlassStyle glassStyle) {
         this.compat = Objects.requireNonNull(compat, "compat");
         this.frostedGlass = frostedGlass;
         this.renderer = renderer;
-        this.fontRegistries = List.copyOf(fontRegistries);
         this.frostedGlassStyle = Objects.requireNonNull(glassStyle, "glassStyle");
-        if (frostedGlass != null) {
-            frostedGlass.applyStyle(glassStyle);
-        }
+        renderer.configureFrostedGlass(frostedGlass, glassStyle);
     }
 
 
@@ -91,54 +89,90 @@ public final class OverlayRenderer implements AutoCloseable {
     }
 
 
+    /**
+     * A long-lived texture for a Minecraft texture or atlas ({@code minecraft:textures/atlas/items.png},
+     * ...). The returned {@link MicaTexture} follows Minecraft re-creating the image and works
+     * on every backend; {@link MicaTexture#close() close} it when done.
+     */
+    @NotNull
+    public MicaTexture texture(@NotNull Identifier textureId, @NotNull TextureFilter filter) {
+        Objects.requireNonNull(textureId, "textureId");
+        Objects.requireNonNull(filter, "filter");
+        return renderer.texture(textureId, filter);
+    }
+
+    /**
+     * The current ImGui texture id for an atlas, cached per (atlas, filter) for the lifetime
+     * of this renderer. Empty while the texture or the renderer is not available.
+     *
+     * @see #texture(Identifier, TextureFilter)
+     */
     @NotNull
     public Optional<TextureHandle> registerAtlasTexture(@NotNull Identifier atlasId,
                                                          @NotNull TextureFilter filter) {
         Objects.requireNonNull(atlasId, "atlasId");
         Objects.requireNonNull(filter, "filter");
-        long imageView = compat.vkImageViewFor(atlasId);
-        if (imageView == 0L) {
-            return Optional.empty();
-        }
-        TextureRegistration reg = registrationFor(atlasId, filter);
-        if (reg.cachedImageView == imageView && reg.cachedTextureId != 0L) {
-            return Optional.of(new TextureHandle(atlasId, reg.cachedTextureId));
-        }
-        long texId = renderer.registerTexture(imageView, VK_IMAGE_LAYOUT_GENERAL, filter);
+        long texId = registrationFor(atlasId, filter).texture().imGuiTextureId();
         if (texId == 0L) {
             return Optional.empty();
         }
-        reg.cachedImageView = imageView;
-        reg.cachedTextureId = texId;
         return Optional.of(new TextureHandle(atlasId, texId));
     }
 
-    private TextureRegistration registrationFor(Identifier atlasId, TextureFilter filter) {
-        for (TextureRegistration reg : registrations) {
-            if (reg.atlasId.equals(atlasId) && reg.filter == filter) {
+    private AtlasRegistration registrationFor(Identifier atlasId, TextureFilter filter) {
+        for (AtlasRegistration reg : registrations) {
+            if (reg.atlasId().equals(atlasId) && reg.filter() == filter) {
                 return reg;
             }
         }
-        TextureRegistration reg = new TextureRegistration(atlasId, filter);
-        registrations.add(reg);
-        return reg;
-    }
-
-
-    public long registerRawTexture(long imageView, int imageLayout, @NotNull TextureFilter filter) {
-        return renderer.registerTexture(imageView, imageLayout, filter);
-    }
-
-
-    public boolean prepareForFrame() {
-        if (!compat.isVulkanRendererActive()) {
-            return false;
+        synchronized (registrations) {
+            for (AtlasRegistration reg : registrations) {
+                if (reg.atlasId().equals(atlasId) && reg.filter() == filter) {
+                    return reg;
+                }
+            }
+            AtlasRegistration reg = new AtlasRegistration(atlasId, filter,
+                    renderer.texture(atlasId, filter));
+            registrations.add(reg);
+            return reg;
         }
+    }
+
+
+    /**
+     * Registers a raw backend texture handle (a Vulkan {@code VkImageView} plus image layout).
+     *
+     * @deprecated backend-specific; works only while Minecraft runs Vulkan and returns
+     *             {@code 0} otherwise. Use {@link #texture(Identifier, TextureFilter)}.
+     */
+    @Deprecated(forRemoval = false)
+    public long registerRawTexture(long imageView, int imageLayout, @NotNull TextureFilter filter) {
+        if (activeBackend().orElse(RenderBackendType.UNKNOWN) != RenderBackendType.VULKAN) {
+            return 0L;
+        }
+        return renderer.registerNativeTexture(imageView, imageLayout, filter);
+    }
+
+    /**
+     * The rendering backend Minecraft is using, or empty before Minecraft created its GPU
+     * device. Informational only: overlays never need to branch on it.
+     */
+    @NotNull
+    public Optional<RenderBackendType> activeBackend() {
+        return renderer.activeBackend();
+    }
+
+    /** Why the renderer stopped, if it could not start on this run's backend. */
+    @NotNull
+    public Optional<MicaBackendException> failure() {
+        return renderer.failure();
+    }
+
+
+    /** Render thread, before Minecraft's GUI draws. Starts the ImGui frame. */
+    public boolean prepareForFrame() {
         try {
-            renderer.refreshVulkanContext();
-            renderer.beginFrame();
-            renderer.recordPendingTransfers();
-            return true;
+            return renderer.beginFrame();
         } catch (Throwable t) {
             LOGGER.error("ImGui prepareForFrame failed; disabling overlay", t);
             close();
@@ -147,15 +181,14 @@ public final class OverlayRenderer implements AutoCloseable {
     }
 
 
+    /** Render thread, after Minecraft's GUI drew. Runs every element and submits the frame. */
     public void renderOverlay() {
-        if (renderer.getVulkanContext() == null) {
+        if (!renderer.isFrameOpen()) {
             return;
         }
         try {
-            boolean blurred = frostedGlass != null && renderer.recordFrostedGlassBlur();
-
-            renderer.beginElementsFrame();
-            RenderContext context = newRenderContext();
+            long blurTextureId = frostedGlass ? renderer.recordBackdrop() : 0L;
+            RenderContext context = newRenderContext(blurTextureId);
 
             MicaScreen currentScreen = ScreenDetector.current();
             for (OverlayElement element : elements) {
@@ -175,17 +208,7 @@ public final class OverlayRenderer implements AutoCloseable {
                     LOGGER.error("Disabling overlay element {} after a failure", element.name(), t);
                 }
             }
-            renderer.endElementsFrame();
-
-            if (!renderer.isFontTextureReady()) {
-                return;
-            }
-
-            Optional<ImGuiRenderer.HostRenderTarget> target = renderer.currentHostRenderTarget(compat);
-            if (target.isEmpty()) {
-                return;
-            }
-            renderer.submit(context, target.get(), blurred);
+            renderer.endFrame();
         } catch (Throwable t) {
             LOGGER.error("ImGui renderOverlay failed; disabling overlay", t);
             close();
@@ -210,11 +233,7 @@ public final class OverlayRenderer implements AutoCloseable {
     }
 
 
-    private @NotNull RenderContext newRenderContext() {
-        long blurTextureId = 0L;
-        if (frostedGlass != null && frostedGlass.isBlurTargetReady()) {
-            blurTextureId = frostedGlass.getImGuiTextureId();
-        }
+    private @NotNull RenderContext newRenderContext(long blurTextureId) {
         float width = renderer.viewportWidthOrDefault();
         float height = renderer.viewportHeightOrDefault();
         float deltaTime = renderer.currentDeltaTime();
@@ -236,9 +255,7 @@ public final class OverlayRenderer implements AutoCloseable {
 
     public void setGlassStyle(@NotNull FrostedGlassStyle style) {
         this.frostedGlassStyle = Objects.requireNonNull(style, "style");
-        if (frostedGlass != null) {
-            frostedGlass.applyStyle(style);
-        }
+        renderer.configureFrostedGlass(frostedGlass, style);
     }
 
     public static final class Fonts {
@@ -290,12 +307,10 @@ public final class OverlayRenderer implements AutoCloseable {
         ImGuiRenderer.imGuiFrame(width, height, deltaTime);
     }
 
+    /** Releases every GPU resource. Call on the render thread (for example from CLIENT_STOPPING). */
     @Override
     public void close() {
         try {
-            if (frostedGlass != null) {
-                frostedGlass.cleanup();
-            }
             renderer.shutdown();
         } catch (Throwable t) {
             LOGGER.error("Error during Renderer shutdown", t);
@@ -320,6 +335,10 @@ public final class OverlayRenderer implements AutoCloseable {
         }
 
         
+        /**
+         * Overrides the version adapter. Optional: {@link MinecraftCompat#detect()} is used
+         * when none is given.
+         */
         @NotNull
         public Builder withMinecraftCompat(@NotNull MinecraftCompat compat) {
             this.compat = Objects.requireNonNull(compat, "compat");
@@ -359,10 +378,7 @@ public final class OverlayRenderer implements AutoCloseable {
 
         @NotNull
         public OverlayRenderer build() {
-            if (compat == null) {
-                throw new IllegalStateException(
-                        "Builder requires a MinecraftCompat. Call withMinecraftCompat(...) first.");
-            }
+            MinecraftCompat resolved = compat != null ? compat : MinecraftCompat.detect();
             List<FontRegistry> allRegistries = new ArrayList<>(
                     ActiveRenderers.fontRegistries().size() + fontRegistries.size());
             allRegistries.addAll(ActiveRenderers.fontRegistries());
@@ -371,12 +387,9 @@ public final class OverlayRenderer implements AutoCloseable {
             
             ActiveRenderers.consumePending();
 
-            ImGuiRenderer renderer = new ImGuiRenderer(compat);
-            FrostedGlassRenderer glass = frostedGlass ? new FrostedGlassRenderer() : null;
-            if (glass != null) {
-                renderer.attachFrostedGlass(glass);
-            }
-            return new OverlayRenderer(compat, glass, renderer, allRegistries, frostedGlassStyle);
+            ImGuiRenderer renderer = new ImGuiRenderer(resolved, allRegistries,
+                    RenderBackends.defaultRegistry());
+            return new OverlayRenderer(resolved, frostedGlass, renderer, frostedGlassStyle);
         }
     }
 }

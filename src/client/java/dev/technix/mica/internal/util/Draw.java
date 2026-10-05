@@ -2,6 +2,7 @@ package dev.technix.mica.internal.util;
 
 import dev.technix.mica.api.FontFace;
 import dev.technix.mica.api.FrostedGlassStyle;
+import dev.technix.mica.api.MicaTexture;
 import dev.technix.mica.api.Palette;
 import dev.technix.mica.api.RenderContext;
 import dev.technix.mica.api.TextureFilter;
@@ -117,15 +118,16 @@ public final class Draw {
 
     
     public static boolean image(@NotNull RenderContext context,
-                                @Nullable TextureHandle handle,
+                                @Nullable MicaTexture texture,
                                 float x, float y, float width, float height) {
-        if (handle == null || handle.imGuiTextureId() == 0L) {
+        long textureId = texture != null ? texture.imGuiTextureId() : 0L;
+        if (textureId == 0L) {
             return false;
         }
         
         
         
-        context.drawList().addImage(handle.imGuiTextureId(),
+        context.drawList().addImage(textureId,
                 x, y, x + width, y + height,
                 0f, 0f, 1f, 1f);
         return true;

@@ -1,17 +1,18 @@
-# mica — ImGui-style overlay library for Minecraft 26.2+ (Vulkan)
+# mica — ImGui-style overlay library for Minecraft 26.2+ (Vulkan and OpenGL)
 
 A small Dear ImGui port that draws HUDs, toast notifications, and procedural text/sprite
-overlays into the same Vulkan framebuffer the game itself renders into, on Minecraft
-26.2+ with the official `com.mojang.blaze3d.vulkan` backend.
+overlays into the same framebuffer the game itself renders into, on Minecraft 26.2+ with
+either of its rendering backends. Mica detects whether Minecraft runs Vulkan or OpenGL
+and picks the matching renderer; your code is identical for both.
 
 ## What's in this artefact
 
 | Package                            | What it is                                                                |
 | ---------------------------------- | ------------------------------------------------------------------------- |
-| `dev.technix.mica.api`             | The public API — `OverlayRenderer`, `OverlayElement`, `RenderContext`, `Draw`, `Palette`, `FontRegistry`, `FontFace`, `FrostedGlassStyle`, `MicaScreen`, `SpriteBounds`, `TextureFilter`, `TextureHandle`, `VanillaAtlases`. |
-| `dev.technix.mica.api.compat.v26_2` | `MinecraftCompatImpl_26_2` — the version adapter that reaches the host's Vulkan device, command buffer and atlas sprites. |
+| `dev.technix.mica.api`             | The public API — `Mica`, `MicaOverlay`, `MicaTexture`, `RenderBackendType`, `OverlayRenderer`, `OverlayElement`, `RenderContext`, `Draw`, `Palette`, `FontRegistry`, `FontFace`, `FrostedGlassStyle`, `MicaScreen`, `SpriteBounds`, `TextureFilter`, `TextureHandle`, `VanillaAtlases`. |
+| `dev.technix.mica.api.compat.v26_2` | `MinecraftCompatImpl_26_2` — the version adapter: detects the rendering backend and reaches the host's Vulkan device / OpenGL render target and atlas sprites. |
 | `dev.technix.mica.examples`        | `ToastElement` — a reference `OverlayElement`.                            |
-| `dev.technix.mica.internal`        | The renderer, the Vulkan backend, the input router, the screen detector, the font atlas loader. Public by Java visibility, conceptually private — application code should not depend on these symbols. |
+| `dev.technix.mica.internal`        | The backend-independent renderer core, the Vulkan and OpenGL backends, the input router, the screen detector, the font atlas loader. Public by Java visibility, conceptually private — application code should not depend on these symbols. |
 | `dev.technix.mica.mixin.client`    | Mixin accessors required by the v26_2 adapter.                              |
 | `assets/mica/`                     | Bundled font assets (SF Pro Display — see "Licensing" below).             |
 
@@ -21,12 +22,9 @@ as a separate mod entry.
 
 ## Requirements
 
-* Minecraft **26.2** with the **Vulkan** backend. Mica is Vulkan-only.
-* Fabric Loader on the consumer side, with this jar in the consumer mod's `/libs/`.
+* Minecraft **26.2**, on the **Vulkan** or the **OpenGL** backend (detected at runtime).
+* Fabric Loader and Fabric API on the consumer side, with this jar in the consumer mod's `/libs/`.
 * A JDK that matches loom's `targetJavaVersion` (currently 25).
-
-If your stack picks the OpenGL backend, the overlay is invisible. See
-[the OpenGL fallback note](#opengl-fallback).
 
 ## Install into your mod
 
@@ -65,14 +63,16 @@ public final class FabricClientEntry implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        OverlayRenderer renderer = OverlayRenderer.builder()
-                .withMinecraftCompat(new MinecraftCompatImpl_26_2())
-                .withFrostedGlass(true)
-                .build();
+        // Picks Mica's Vulkan or OpenGL renderer automatically, installs the overlay
+        // and closes it when the client stops.
+        Mica mica = Mica.create();
 
-        renderer.registerElement(new MyHudElement());
-
-        ActiveRenderers.set(renderer);
+        mica.registerOverlay(new MyHudElement());
+        mica.registerOverlay(ctx -> {
+            ImGui.begin("My Mod");
+            ImGui.text("Hello Minecraft!");
+            ImGui.end();
+        });
     }
 }
 ```
@@ -95,17 +95,14 @@ See:
 * [`docs/mica/api.md`](docs/mica/api.md) — symbol-by-symbol reference for every
   public type.
 
-## OpenGL fallback
+## Vulkan and OpenGL
 
-A Minecraft client that picks the OpenGL backend has no `VulkanContext`, so the
-overlay's `MinecraftCompatImpl_26_2.vulkanDevice()` returns empty and `Draw.backdrop`
-returns `false`. The platform logs a single WARN at startup:
-
-> `imgui-mc-impl requires Vulkan — host GpuDevice is active as X, not VulkanDevice.`
-
-If you need to support both, force Vulkan with the `--graphicsBackend vulkan`
-command-line argument (the project's `build.gradle` does this for `runClient` by
-default; in production, opt-in via your launcher / client settings).
+Mica supports both of Minecraft 26.2's rendering backends through the same API. The
+backend is detected on the first frame; nothing in your code refers to Vulkan or OpenGL.
+Textures are opaque `MicaTexture`s (`mica.texture(VanillaAtlases.ITEMS, TextureFilter.NEAREST)`),
+and frosted glass works on both. If Mica cannot start on a backend, it logs one ERROR
+naming the Minecraft version, backend, Mica version and reason, and disables only the
+overlay. See [`docs/mica/backends.md`](docs/mica/backends.md).
 
 ## Java package
 
@@ -131,10 +128,10 @@ FontRegistry myFonts = new FontRegistry(
 myFonts.add("heading", "heading-bold.otf", 22f);
 myFonts.add("body",    "body-regular.otf", 14f);
 
-OverlayRenderer renderer = OverlayRenderer.builder()
-        .withMinecraftCompat(new MinecraftCompatImpl_26_2())
-        .withFontRegistry(myFonts)
+Mica mica = Mica.builder()
+        .fontRegistry(myFonts)
         .build();
+OverlayRenderer renderer = mica.renderer();
 ```
 
 Draw with `renderer.font("heading")` (returns `FontFace | null`) and pass it to `Draw.text`.
@@ -154,7 +151,7 @@ FrostedGlassStyle sleek = FrostedGlassStyle.builder()
         .build();
 ```
 
-Pass it via `.withFrostedGlassStyle(sleek)` at construction, or swap it at runtime with
+Pass it via `Mica.builder().frostedGlassStyle(sleek)` (or `.withFrostedGlassStyle(sleek)` on `OverlayRenderer.builder()`) at construction, or swap it at runtime with
 `renderer.setGlassStyle(sleek)` — pass count is hot-swapped, divisor triggers
 a target reallocation on the next resize.
 
@@ -163,6 +160,7 @@ a target reallocation on the next resize.
 * Dear ImGui upstream — https://github.com/ocornut/imgui
 * imgui-java binding — https://github.com/SpaiR/imgui-java
 * Vulkan 1.x spec — https://registry.khronos.org/vulkan/
+* OpenGL 3.3 core spec — https://registry.khronos.org/OpenGL/
 
 ## Licensing
 

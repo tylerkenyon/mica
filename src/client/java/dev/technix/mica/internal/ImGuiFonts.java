@@ -107,6 +107,16 @@ public final class ImGuiFonts {
         LOGGER.info("Mica fonts reloaded.");
     }
 
+    /**
+     * Forgets the rasterised faces after the ImGui context was destroyed, so the next
+     * {@link #load(List)} rebuilds them into the new context's atlas.
+     */
+    public static synchronized void reset() {
+        loaded = false;
+        FACES.clear();
+        REGISTRIES.clear();
+    }
+
     private static int countUserFaces() {
         int count = 0;
         for (FontRegistry registry : REGISTRIES) {
@@ -122,7 +132,7 @@ public final class ImGuiFonts {
         }
         try {
             int rounded = Math.max(1, (int) Math.round(sizePixels));
-            ImFont font = atlas.addFontFromMemoryTTF(data, rounded);
+            ImFont font = FontData.add(atlas, data, rounded);
             return new FontFace(faceName, rounded, font);
         } catch (RuntimeException exception) {
             LOGGER.warn("Could not rasterise bundled {} at {}px", name, sizePixels, exception);

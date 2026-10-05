@@ -15,8 +15,6 @@ public abstract class GuiRendererMixin {
 
     private static final Logger IMGUI_LOGGER = LoggerFactory.getLogger("mica");
 
-    private static final boolean IMGUI_SKIP_BLUR =
-            Boolean.getBoolean("imgui.debug.skipBlur");
     private static final boolean IMGUI_SKIP_DRAW =
             Boolean.getBoolean("imgui.debug.skipDraw");
 

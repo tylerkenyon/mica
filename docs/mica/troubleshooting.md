@@ -4,43 +4,29 @@ Common failures and where to look. Symptoms are organised by what you see at run
 
 ## "I see the vanilla game but no Mica overlay"
 
-Almost always: an OpenGL fallback. Check the log for a line like:
+Mica works on both Vulkan and OpenGL, so the backend itself is no longer a reason
+for a missing overlay. Scan the log:
 
 ```
-[Render thread/WARN] (Minecraft) Graphics backend forced to vulkan by launch argument...
+grep -i 'mica' latest.log
 ```
 
-If you see that, Vulkan is forced *correctly* — Mica should be drawing. If you see
-Minecraft using OpenGL instead:
+* `Mica detected Minecraft's <Backend> backend; using the <Backend> renderer.` followed
+  by `Mica renderer initialised: ...` means the renderer is running. Check that your
+  overlay is registered on the `Mica` instance (or an installed `OverlayRenderer`) and
+  that its `renderScope()` matches the current screen.
+* `Mica could not start its renderer (Minecraft …, rendering backend …, Mica …).
+  Reason: …` means start-up failed and the overlay is disabled for the session. The
+  reason names the cause, for example:
+  * `Mica has no renderer for the Unknown backend` — a third-party rendering backend
+    replaced Minecraft's. Mica deliberately does not fall back to another API.
+  * `OpenGL 3.2 core is required` — the driver offers too old a context.
+  * `Mica cannot read the OpenGL texture name from …` — this Minecraft build changed
+    `GlTexture`; the compat adapter needs an update.
+* No Mica line at all — the overlay was never installed (`Mica.create()` not called).
 
-```
-[Render thread/INFO] (Minecraft) Using graphics backend OpenGL, using drivers: ...
-```
-
-then the host config (`options.txt` or launch argument) picked OpenGL.
-
-**Fix.** Run with `--graphicsBackend vulkan` on the launcher command line. In a dev
-environment, pom.gradle passes this to `runClient` for you — see
-[`distribution.md`](./distribution.md). For a shipped mod, instruct your end-users
-to do the same.
-
-A single WARN log line is also emitted by the platform itself when it sees a
-non-Vulkan `GpuDevice`:
-
-```
-imgui-mc-impl requires Vulkan — host GpuDevice is active as X, not VulkanDevice.
-```
-
-If you see this line, the host is on OpenGL.
-
-## "I see a Minecraft render but the toast and HUDs are missing"
-
-Same root cause as above (OpenGL fallback), but a log scan is worthwhile because
-the platform might be enabled and silently noop'ing. Verify with:
-
-```
-grep -i 'mica\|imgui-mc-impl\|Graphics backend' latest.log
-```
+To check one backend in a dev environment, use `./gradlew runClient -PmicaBackend=vulkan`
+or `-PmicaBackend=opengl`.
 
 ## "My HUD shows up but with wrong colours / upside-down textures"
 
@@ -58,9 +44,10 @@ that V = 0 is the bottom row of the texture. If your sprite looks flipped, swap
 Either `withFrostedGlass(false)` was set, or the blur pass has not yet warmed up.
 The first frame after window resample can be empty. If it stays empty:
 
-* Verify `withFrostedGlass(true)` on the builder.
-* Verify `--graphicsBackend vulkan` is on the launcher.
-* Check the platform didn't log the OpenGL-fallback warning.
+* Verify `frostedGlass(true)` / `withFrostedGlass(true)` on the builder.
+* Look for `frosted glass unavailable; panels draw without blur` or `Frosted glass
+  failed on <Backend>` in the log. Mica then keeps rendering without the backdrop
+  (`RenderContext.hasBlur()` is `false`) instead of disabling the overlay.
 
 ## "I added a font and `renderer.font("name")` returns null"
 
@@ -75,14 +62,12 @@ the `FontRegistry` constructor takes
 `Identifier.fromNamespaceAndPath("yourmod", "fonts")`. If the file just isn't
 there, the platform logs a `WARN: Font resource missing:` line.
 
-## "I see Vulkan chosen but Mica's WARN still prints"
+## "The game aborts with `free(): invalid size` on exit or after reloading fonts"
 
-The OpenGL-fallback WARN is one-shot; the field `NON_VULKAN_WARNING_LOGGED`
-tracks it. If you see it on every run, the platform is seeing a non-`VulkanDevice`
-backend — even though Vulkan was the launcher-default, Minecraft may have
-gracefully recompiled into a different backend on a particular GPU.
-
-**Fix.** Same as above — `--graphicsBackend vulkan`.
+That is imgui-java's `addFontFromMemoryTTF(byte[])` letting ImGui `free()` a pointer
+into a Java array. Mica's own font loading goes through `internal.FontData`, which
+avoids this. If you add fonts to the atlas yourself, use `FontRegistry` or
+`FontData.add(atlas, bytes, size)` instead of calling `addFontFromMemoryTTF` directly.
 
 ## "My HUD widgets reflow when a font changes mid-line"
 
@@ -126,8 +111,10 @@ The build pipeline exposes:
   blur, not the ImGui drawing).
 * `-PimguiDebugSkipDraw` — skip the ImGui drawing entirely (proves the issue is
   the ImGui submission, not upstream plumbing).
-* `-Dimgui.allowNonVulkan=true` — run when the host picks OpenGL; demotes the
-  WARN to INFO.
+* `-PmicaBackend=vulkan|opengl` — force Minecraft's backend for the run (passed as
+  `--graphicsBackend`).
+* `-PmicaDemoWindow` — add a plain ImGui demo window (text, button, slider, text
+  input, texture, frosted panel) for checking either backend by hand.
 
 Useful alone or in combination for bisecting.
 
@@ -139,6 +126,7 @@ made instance-level so `runtime style` swaps take effect. Set a logging trap on
 
 ## Reading more
 
+* [`backends.md`](./backends.md) — Vulkan vs OpenGL, detection, feature matrix.
 * [`vulkan.md`](./vulkan.md) — Vulkan-specific gotchas.
 * [`imgui.md`](./imgui.md) — imgui-java binding notes.
 * [`distribution.md`](./distribution.md) — what the build pipeline actually emits.

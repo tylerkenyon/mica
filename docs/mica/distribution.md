@@ -23,13 +23,15 @@ Verifiable by `unzip -l dist/mica-<version>.jar`:
 | -------------------------------------------------- | ------- | -------------------------------------- |
 | `dev/technix/mica/api/`                            | ~15     | Public surface (`OverlayRenderer`, `OverlayElement`, `RenderContext`, `MicaScreen`, `Palette`, `FontRegistry`, `FontFace`, `FrostedGlassStyle`, `SpriteBounds`, `TextureFilter`, `TextureHandle`, `VanillaAtlases`, ...). |
 | `dev/technix/mica/api/compat/v26_2/`              | ~3      | `MinecraftCompatImpl_26_2` and its support classes.   |
-| `dev/technix/mica/internal/`                       | ~25     | Renderer, Vulkan backend, screen detector, input router, font atlas loader, active-renderer registry. |
+| `dev/technix/mica/internal/`                       | ~25     | Backend-independent renderer core, texture cache, screen detector, input router, font atlas loader, active-renderer registry. |
 | `dev/technix/mica/internal/util/`                  | ~3      | `Draw`, `Theme`.                       |
-| `dev/technix/mica/internal/backend/vulkan/`        | ~6      | `FrostedGlassRenderer`, `VulkanContext`, `VulkanImGuiBackend`, `VulkanShaderCompiler`. |
+| `dev/technix/mica/internal/backend/`               | ~5      | `RenderBackend`, `RenderBackendRegistry`, `RenderBackends`, `BackendClassifier`, `BackendDiagnostics`. |
+| `dev/technix/mica/internal/backend/vulkan/`        | ~7      | `VulkanRenderBackend`, `FrostedGlassRenderer`, `VulkanContext`, `VulkanHostAccess`, `VulkanImGuiBackend`, `VulkanShaderCompiler`. |
+| `dev/technix/mica/internal/backend/opengl/`        | ~5      | `OpenGLRenderBackend`, `OpenGLImGuiBackend`, `OpenGLFrostedGlass`, `GlStateSnapshot`, `OpenGLHostAccess`. |
 | `dev/technix/mica/examples/`                       | ~2      | `ToastElement`.                        |
 | `dev/technix/mica/mixin/client/`                   | ~6      | Mixin accessors required by the 26.2 adapter. |
 | `assets/mica/`                                     | fonts  | SF Pro Display is bundled (read the licence note in the README before commercial use). |
-| `META-INF/jars/`                                   | jar-in-jar | imgui-java 1.92 + LWJGL Vulkan bits, packaged so the consumer has no extra dependencies. |
+| `META-INF/jars/`                                   | jar-in-jar | imgui-java 1.92 (binding + natives), packaged so the consumer has no extra dependencies. LWJGL (Vulkan, OpenGL, Shaderc) is not bundled: Minecraft 26.2 provides it. |
 
 `fabric.mod.json` is **not** in the jar. A host's Fabric Loader treats the artefact as
 plain library code, not a conflicting mod entry, when dropped into `/libs/`.

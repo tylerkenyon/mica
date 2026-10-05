@@ -23,10 +23,9 @@ myFonts.add("heading", "heading-bold.otf",   22f);
 myFonts.add("body",    "body-regular.otf",  14f);
 myFonts.add("mono",    "roboto-mono.otf",   12f);
 
-OverlayRenderer renderer = OverlayRenderer.builder()
-        .withMinecraftCompat(new MinecraftCompatImpl_26_2())
-        .withFrostedGlass(true)
-        .withFontRegistry(myFonts)
+Mica mica = Mica.builder()
+        .frostedGlass(true)
+        .fontRegistry(myFonts)
         .build();
 ```
 
@@ -113,10 +112,9 @@ FrostedGlassStyle sleek = FrostedGlassStyle.builder()
         .defaultRounding(14f)
         .build();
 
-OverlayRenderer renderer = OverlayRenderer.builder()
-        .withMinecraftCompat(new MinecraftCompatImpl_26_2())
-        .withFrostedGlass(true)
-        .withFrostedGlassStyle(sleek)
+Mica mica = Mica.builder()
+        .frostedGlass(true)
+        .frostedGlassStyle(sleek)
         .build();
 ```
 
@@ -171,9 +169,11 @@ rather than producing a render bug that only manifests in a screenshot review.
 
 A handful of things in the render pipeline are intentionally not part of either API:
 
-* The compute kernel (Kawase, with the 9-tap weights chosen for hover-fidelity over
-  performance). Replacing the kernel requires a new `FrostedGlassRenderer` subclass
-  and a Vulkan shader rebuild pipeline; out of scope for the user-facing API today.
+* The blur kernel (Kawase, with the 9-tap weights chosen for hover-fidelity over
+  performance). It exists twice, as the Vulkan compute shader in `FrostedGlassRenderer`
+  and as the OpenGL fragment shader in `OpenGLFrostedGlass`; replacing it means changing
+  both. Out of scope for the user-facing API today. Styles apply identically on both
+  backends.
 * The descriptor-set ring size (`descriptorSetForward` + `descriptorSetReverse`
   ping-pong). The choice is per-frame re-entrancy; raising it is a memory trade-off.
 * The colour sampling filter (`VK_FILTER_LINEAR`). The host's scene image is sampled
