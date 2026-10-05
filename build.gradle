@@ -215,3 +215,50 @@ publishing {
         // retrieving dependencies.
     }
 }
+
+// TEMPORARY: dumps Minecraft 26.3 class members into the CI log (reverted in the next commit).
+tasks.register("probeMinecraft") {
+    doLast {
+        def urls = sourceSets.client.compileClasspath.files.collect { it.toURI().toURL() } as URL[]
+        def loader = new URLClassLoader(urls, ClassLoader.platformClassLoader)
+        def names = [
+            "net.minecraft.client.KeyboardHandler", "net.minecraft.client.KeyboardManager",
+            "net.minecraft.client.MouseHandler", "net.minecraft.client.input.KeyEvent",
+            "net.minecraft.client.input.CharacterEvent", "net.minecraft.client.input.MouseButtonInfo",
+            "net.minecraft.client.input.MouseButtonEvent", "net.minecraft.client.gui.render.GuiRenderer",
+            "com.mojang.blaze3d.systems.RenderSystem", "com.mojang.blaze3d.pipeline.RenderTarget",
+            "com.mojang.blaze3d.platform.InputConstants", "com.mojang.blaze3d.platform.TextInputManager",
+            "com.mojang.renderpearl.frontend.FrontendGpuDevice", "com.mojang.renderpearl.frontend.FrontendCommandEncoder",
+            "com.mojang.renderpearl.api.device.GpuDevice", "com.mojang.renderpearl.api.commands.CommandEncoder",
+            "com.mojang.renderpearl.backend.api.GpuDeviceBackend", "com.mojang.renderpearl.backend.api.CommandEncoderBackend",
+            "com.mojang.renderpearl.backend.vulkan.VulkanCommandEncoder", "com.mojang.renderpearl.backend.vulkan.VulkanDevice",
+            "com.mojang.renderpearl.backend.vulkan.VulkanQueue", "com.mojang.renderpearl.backend.vulkan.VulkanInstance",
+            "com.mojang.renderpearl.backend.vulkan.VulkanGpuTexture", "com.mojang.renderpearl.backend.vulkan.VulkanGpuTextureView",
+            "com.mojang.renderpearl.backend.vulkan.VulkanConst", "com.mojang.renderpearl.backend.vulkan.VulkanRenderPass",
+            "com.mojang.renderpearl.backend.opengl.GlTexture", "com.mojang.renderpearl.backend.opengl.GlTextureView",
+            "com.mojang.renderpearl.backend.opengl.GlDevice", "com.mojang.renderpearl.backend.common.BaseGpuTexture",
+            "com.mojang.renderpearl.api.textures.GpuTexture", "com.mojang.renderpearl.api.textures.GpuTextureView",
+            "com.mojang.renderpearl.api.GpuFormat",
+            "net.minecraft.client.Minecraft", "net.minecraft.client.gui.Gui", "net.minecraft.client.renderer.GameRenderer",
+            "net.minecraft.client.renderer.texture.AbstractTexture", "net.minecraft.client.renderer.texture.TextureAtlas",
+            "net.minecraft.client.renderer.texture.TextureAtlasSprite", "net.minecraft.client.renderer.texture.TextureManager",
+            "net.minecraft.server.packs.resources.Resource", "net.minecraft.client.gui.screens.TitleScreen",
+            "net.minecraft.client.gui.screens.PauseScreen", "net.minecraft.client.gui.screens.ChatScreen",
+            "net.minecraft.client.gui.screens.inventory.AbstractContainerScreen",
+            "org.lwjgl.glfw.GLFW", "org.lwjgl.sdl.SDLScancode", "org.lwjgl.sdl.SDLMouse", "org.lwjgl.sdl.SDLKeyboard",
+            "org.lwjgl.opengl.GL33", "org.lwjgl.vulkan.VK10", "org.lwjgl.Version"]
+        def interesting = ~/(?i)(key|char|mouse|button|move|scroll|render|device|backend|encoder|command|texture|target|width|height|view|image|queue|instance|format|toVk|glId|^id$|gl|thread|screen|gui|sprite|atlas|location|missing|U0|V0|open|resource|text|input|press|release|repeat|SDL_SCANCODE_A$|SDL_SCANCODE_ESCAPE|SDL_BUTTON|getVersion|pass)/
+        names.each { n ->
+            try {
+                def c = Class.forName(n, false, loader)
+                println "### ${n} [${java.lang.reflect.Modifier.toString(c.modifiers)}] super=${c.superclass?.name} ifaces=${c.interfaces*.name}"
+                c.declaredFields.findAll { it.name =~ interesting || c.name.contains("Event") || c.name.contains("MouseButton") }.each { println "  F ${it}" }
+                c.declaredMethods.findAll { it.name =~ interesting || c.name.contains("Event") || c.name.contains("MouseButton") || c.name.contains("Handler") || c.name.contains("Manager") || c.name.contains("renderpearl") }.each { println "  M ${it}" }
+                if (n.endsWith("Version")) println "  LWJGL ${c.getMethod('getVersion').invoke(null)}"
+            } catch (Throwable t) {
+                println "### ${n} MISSING ${t}"
+            }
+        }
+    }
+}
+tasks.named("compileJava") { dependsOn "probeMinecraft" }
